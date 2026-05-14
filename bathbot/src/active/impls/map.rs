@@ -105,26 +105,27 @@ impl IActiveMessage for MapPagination {
         let creator_fut = creator_name(map, &self.mapset);
         let (map_res, gd_creator) = tokio::join!(map_fut, creator_fut);
 
-        let mut rosu_map = map_res.wrap_err("Failed to get pp map")?;
+        let rosu_map = map_res.wrap_err("Failed to get pp map")?;
 
-        if let Some(ar_) = self.attrs.ar {
-            rosu_map.ar = ar_ as f32;
+        let mut attrs_builder = rosu_map.attributes();
+
+        if let Some(ar) = self.attrs.ar {
+            attrs_builder.ar(ar as f32, false);
         }
 
-        if let Some(cs_) = self.attrs.cs {
-            rosu_map.cs = cs_ as f32;
+        if let Some(cs) = self.attrs.cs {
+            attrs_builder.cs(cs as f32, false);
         }
 
-        if let Some(hp_) = self.attrs.hp {
-            rosu_map.hp = hp_ as f32;
+        if let Some(hp) = self.attrs.hp {
+            attrs_builder.hp(hp as f32, false);
         }
 
-        if let Some(od_) = self.attrs.od {
-            rosu_map.od = od_ as f32;
+        if let Some(od) = self.attrs.od {
+            attrs_builder.od(od as f32, false);
         }
 
-        let map_attrs = rosu_map
-            .attributes()
+        let map_attrs = attrs_builder
             .mods(&self.mods)
             .clock_rate(clock_rate)
             .build()
@@ -552,13 +553,12 @@ impl IActiveMessage for MapPagination {
                 let mods = match mods_res {
                     Some(Ok(value)) => Some(value),
                     Some(Err(_)) => {
-                        debug!(input, "Failed to parse simulate mods");
+                        debug!(input, "Failed to parse map mods");
 
                         return Ok(());
                     }
                     None => None,
                 };
-                debug!(?mods, "Matched mods");
 
                 match mods.map(|mods| mods.try_with_mode(map.mode)) {
                     Some(Some(mods)) if mods.is_valid() => self.mods = mods.into(),
