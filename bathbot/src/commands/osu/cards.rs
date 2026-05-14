@@ -236,7 +236,7 @@ async fn card(orig: CommandOrigin<'_>, args: Card<'_>) -> Result<()> {
                 .await
                 .wrap_err("Failed to get pp map")?;
 
-            let difficulty = Context::pp_parsed(&map, mode)
+            let difficulty = Context::pp_parsed(&map, score.map_id, mode)
                 .lazer(score.set_on_lazer)
                 .mods(score.mods.clone())
                 .difficulty()

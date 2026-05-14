@@ -17,6 +17,7 @@ use crate::commands::{osu::LeaderboardScore, utility::ScoreEmbedDataRaw};
 #[derive(Clone)]
 pub struct PpManager<'m> {
     map: Cow<'m, Beatmap>,
+    map_id: u32,
     attrs: Option<DifficultyAttributes>,
     mods: Mods,
     state: Option<ScoreState>,
@@ -26,14 +27,15 @@ pub struct PpManager<'m> {
 
 impl<'m> PpManager<'m> {
     pub fn new(map: &'m OsuMap) -> Self {
-        Self::from_parsed(&map.pp_map)
+        Self::from_parsed(&map.pp_map, map.map_id())
     }
 
-    pub fn from_parsed(map: &'m Beatmap) -> Self {
+    pub fn from_parsed(map: &'m Beatmap, map_id: u32) -> Self {
         // Cannot check for suspicion yet because the mode might still change
 
         Self {
             map: Cow::Borrowed(map),
+            map_id,
             attrs: None,
             mods: Mods::default(),
             state: None,
@@ -123,7 +125,16 @@ impl<'m> PpManager<'m> {
             return Some(attrs);
         }
 
-        if self.map.check_suspicion().is_err() {
+        if let Err(reason) = self.map.check_suspicion() {
+            warn!(
+                ?reason,
+                map_id = self.map_id,
+                mods = ?self.mods.inner,
+                clock_rate = self.mods.clock_rate,
+                lazer = self.lazer,
+                "Suspicion check failed",
+            );
+
             return None;
         }
 
@@ -308,7 +319,7 @@ fn stats_to_state(max_combo: u32, mode: GameMode, stats: &ScoreStatistics) -> Sc
 }
 
 /// Mods with an optional custom clock rate.
-#[derive(Clone, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Mods {
     pub inner: rosu_pp::GameMods,
     pub clock_rate: Option<f64>,

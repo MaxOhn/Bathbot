@@ -239,7 +239,14 @@ impl Context {
 
         let ordr = match tokio::time::timeout(Duration::from_secs(20), ordr_fut).await {
             Ok(Ok(ordr)) => Some(Arc::new(ordr)),
-            Ok(Err(err)) => return Err(err),
+            Ok(Err(err)) => {
+                error!(
+                    ?err,
+                    "Failed to create ordr client, initializing without it"
+                );
+
+                None
+            }
             Err(_) => {
                 warn!("o!rdr timed out, initializing without it");
 

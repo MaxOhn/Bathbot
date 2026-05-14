@@ -90,7 +90,7 @@ impl MapManager {
         ) -> Result<Option<DifficultyAttributes>> {
             let map = this.pp_map(map_id).await.wrap_err("Failed to get pp map")?;
 
-            let attrs = PpManager::from_parsed(&map)
+            let attrs = PpManager::from_parsed(&map, map_id)
                 .mode(mode)
                 .mods(mods)
                 .difficulty()
