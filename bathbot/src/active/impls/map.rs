@@ -105,7 +105,18 @@ impl IActiveMessage for MapPagination {
         let creator_fut = creator_name(map, &self.mapset);
         let (map_res, gd_creator) = tokio::join!(map_fut, creator_fut);
 
-        let rosu_map = map_res.wrap_err("Failed to get pp map")?;
+        let rosu_map = match map_res.wrap_err("Failed to get pp map") {
+            Ok(map) => map,
+            Err(err) => {
+                warn!(?err, "Failed to prepare beatmap for map command");
+
+                let embed = EmbedBuilder::new()
+                    .color_red()
+                    .description("Failed to prepare beatmap");
+
+                return Ok(BuildPage::new(embed, true));
+            }
+        };
 
         let mut attrs_builder = rosu_map.attributes();
 

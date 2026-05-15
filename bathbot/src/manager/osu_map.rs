@@ -328,7 +328,7 @@ impl MapManager {
     /// Download a map's file and retry if it failed
     async fn download_map_file(&self, map_id: u32) -> Result<Beatmap> {
         let backoff = ExponentialBackoff::new(2).factor(500).max_delay(10_000);
-        const ATTEMPTS: usize = 10;
+        const ATTEMPTS: usize = 6;
 
         #[derive(Debug)]
         enum BackoffReason {
