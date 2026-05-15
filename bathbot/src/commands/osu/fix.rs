@@ -292,7 +292,7 @@ async fn request_by_map(
 ) -> ScoreResult {
     let map = match Context::osu_map().map(map_id, None).await {
         Ok(map) => map,
-        Err(MapError::NotFound) => {
+        Err(MapError::NotFound { .. }) => {
             let content = format!(
                 "Could not find beatmap with id `{map_id}`. \
                 Did you give me a mapset id instead of a map id?"
@@ -476,7 +476,7 @@ async fn request_by_score(
                 Err(err) => ScoreResult::Error(err),
             };
         }
-        (_, Err(MapError::NotFound), _) => {
+        (_, Err(MapError::NotFound { .. }), _) => {
             let content = format!("There is no map with id {map_id}");
 
             return match orig.error(content).await {

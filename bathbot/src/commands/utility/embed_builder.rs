@@ -795,7 +795,7 @@ impl ScoreEmbedDataRaw {
 
         let map = match map_fut.await {
             Ok(map) => map.convert(self.mode),
-            Err(MapError::NotFound) => bail!("Beatmap with id {map_id} was not found"),
+            Err(MapError::NotFound { .. }) => bail!("Beatmap with id {map_id} was not found"),
             Err(MapError::Report(err)) => return Err(err),
         };
 

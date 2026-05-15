@@ -703,7 +703,7 @@ async fn map_bpm(
 
     let map = match Context::osu_map().map(map_id, None).await {
         Ok(map) => map,
-        Err(MapError::NotFound) => {
+        Err(MapError::NotFound { .. }) => {
             let content = format!(
                 "Could not find beatmap with id `{map_id}`. \
                 Did you give me a mapset id instead of a map id?",
@@ -779,7 +779,7 @@ async fn map_strains(
 
             map
         }
-        Err(MapError::NotFound) => {
+        Err(MapError::NotFound { .. }) => {
             let content = format!(
                 "Could not find beatmap with id `{map_id}`. \
                         Did you give me a mapset id instead of a map id?",

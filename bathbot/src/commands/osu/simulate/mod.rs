@@ -409,7 +409,7 @@ async fn prepare_map(
             Some(mode) => map.convert(mode),
             None => map,
         },
-        Err(MapError::NotFound) => {
+        Err(MapError::NotFound { .. }) => {
             let content = format!(
                 "Could not find beatmap with id `{map_id}`. \
                 Did you give me a mapset id instead of a map id?"

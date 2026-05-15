@@ -195,7 +195,7 @@ impl MapManager {
 
         let mapset = match Context::osu().beatmapset_from_map_id(map_id).await {
             Ok(mapset) => mapset,
-            Err(OsuError::NotFound) => return Err(MapError::NotFound),
+            Err(OsuError::NotFound) => return Err(MapError::NotFound { id: map_id }),
             Err(err) => {
                 return Err(MapError::Report(
                     Report::new(err).wrap_err("Failed to retrieve mapset"),
@@ -222,7 +222,7 @@ impl MapManager {
 
         let mapset = match Context::osu().beatmapset(mapset_id).await {
             Ok(mapset) => mapset,
-            Err(OsuError::NotFound) => return Err(MapError::NotFound),
+            Err(OsuError::NotFound) => return Err(MapError::NotFound { id: mapset_id }),
             Err(err) => {
                 return Err(MapError::Report(
                     Report::new(err).wrap_err("Failed to retrieve mapset"),
@@ -253,7 +253,7 @@ impl MapManager {
 
                 OsuMapSlim::try_from_mapset(mapset, map_id)
             }
-            Err(OsuError::NotFound) => Err(MapError::NotFound),
+            Err(OsuError::NotFound) => Err(MapError::NotFound { id: map_id }),
             Err(err) => Err(MapError::Report(
                 Report::new(err).wrap_err("Failed to retrieve mapset"),
             )),
@@ -269,7 +269,7 @@ impl MapManager {
 
                 Ok(mapset)
             }
-            Err(OsuError::NotFound) => Err(MapError::NotFound),
+            Err(OsuError::NotFound) => Err(MapError::NotFound { id: mapset_id }),
             Err(err) => Err(MapError::Report(
                 Report::new(err).wrap_err("Failed to retrieve mapset"),
             )),
@@ -302,7 +302,7 @@ impl MapManager {
                 let map = map_res.wrap_err("Failed to download map file")?;
                 let map_slim = match map_slim_res {
                     Ok(map_slim) => map_slim,
-                    Err(err @ MapError::NotFound) => return Err(err),
+                    Err(err @ MapError::NotFound { .. }) => return Err(err),
                     Err(MapError::Report(err)) => {
                         let wrap = "Failed to get map after checksum mismatch";
 
@@ -562,8 +562,8 @@ impl Searchable<RegularCriteria<'_>> for OsuMap {
 
 #[derive(Error)]
 pub enum MapError {
-    #[error("map(set) not found")]
-    NotFound,
+    #[error("map(set) not found (id: {id})")]
+    NotFound { id: u32 },
     #[error(transparent)]
     Report(#[from] Report),
 }
@@ -571,7 +571,7 @@ pub enum MapError {
 impl Debug for MapError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
-            MapError::NotFound => Display::fmt(self, f),
+            MapError::NotFound { .. } => Display::fmt(self, f),
             MapError::Report(err) => Debug::fmt(err, f),
         }
     }
