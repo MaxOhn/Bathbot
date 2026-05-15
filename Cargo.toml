@@ -53,7 +53,6 @@ rosu-pp = { version = "4.0.0" }
 # rosu-pp = { git = "https://github.com/MaxOhn/rosu-pp", branch = "pp-update" }
 # rosu-pp = { path = "../rosu-pp" }
 rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "lazer", default-features = false, features = ["deny_unknown_fields", "macros", "metrics"] }
-# rosu-v2 = { path = "../rosu-v2", default-features = false, features = ["deny_unknown_fields", "macros", "metrics"] }
 rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = "main" }
 # rosu-pp-older = { path = "../../rosu-pp-older" }
 # rosu-render = { git = "https://github.com/MaxOhn/rosu-render", branch = "main", default-features = false, features = ["rustls-webpki-roots"] }
