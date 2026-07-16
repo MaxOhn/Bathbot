@@ -201,7 +201,10 @@ impl CachedRender {
                         ..
                     } => (
                         if let Some(ref reason) = reason {
-                            format!("Error code {int} from o!rdr: {message}\nReason: {reason}", int = code.to_u8())
+                            format!(
+                                "Error code {int} from o!rdr: {message}\nReason: {reason}",
+                                int = code.to_u8()
+                            )
                         } else {
                             format!("Error code {int} from o!rdr: {message}", int = code.to_u8())
                         },

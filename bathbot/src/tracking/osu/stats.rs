@@ -24,7 +24,7 @@ impl OsuTrackingStats {
         let users = OsuTracking::users().read().unwrap();
         let unique_users = users.len();
 
-        for (_, entry) in users.iter() {
+        for entry in users.values() {
             const MODES: [GameMode; 4] = [
                 GameMode::Osu,
                 GameMode::Taiko,

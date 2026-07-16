@@ -300,10 +300,7 @@ impl<'m> RecentScore<'m> {
                             return Err(content.into());
                         }
                     },
-                    "grade" | "g" => match value.parse::<GradeOption>() {
-                        Ok(grade_) => grade = Some(grade_),
-                        Err(content) => return Err(content.into()),
-                    },
+                    "grade" | "g" => grade = Some(value.parse::<GradeOption>()?),
                     _ => {
                         let content = format!(
                             "Unrecognized option `{key}`.\n\

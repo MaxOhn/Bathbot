@@ -596,10 +596,7 @@ impl<'m> TopArgs<'m> {
                             Err(_) => return Err(Self::ERR_PARSE_COMBO.into()),
                         },
                     },
-                    "grade" | "g" => match value.parse::<GradeOption>() {
-                        Ok(grade_) => grade = Some(grade_.into()),
-                        Err(content) => return Err(content.into()),
-                    },
+                    "grade" | "g" => grade = Some(value.parse::<GradeOption>()?.into()),
                     "sort" | "s" | "order" | "ordering" => match value {
                         "acc" | "a" | "accuracy" => sort_by = Some(ScoreOrder::Acc),
                         "combo" | "c" => sort_by = Some(ScoreOrder::Combo),
