@@ -627,11 +627,6 @@ impl ProfileMenu {
                 GameMode::Mania => {
                     let _ = writeln!(
                         description,
-                        "CS       | {cs_min:^min_w$} | {cs_avg:^avg_w$} | {cs_max:^max_w$}",
-                    );
-
-                    let _ = writeln!(
-                        description,
                         "OD       | {od_min:^min_w$} | {od_avg:^avg_w$} | {od_max:^max_w$}",
                     );
                 }
@@ -652,6 +647,11 @@ impl ProfileMenu {
                     let _ = writeln!(
                         description,
                         "CS       | {cs_min:^min_w$} | {cs_avg:^avg_w$} | {cs_max:^max_w$}",
+                    );
+
+                    let _ = writeln!(
+                        description,
+                        "OD       | {od_min:^min_w$} | {od_avg:^avg_w$} | {od_max:^max_w$}",
                     );
                 }
             }
