@@ -608,11 +608,6 @@ impl ProfileMenu {
 
             let _ = writeln!(
                 description,
-                "Length   | {len_min:^min_w$} | {len_avg:^avg_w$} | {len_max:^max_w$}",
-            );
-
-            let _ = writeln!(
-                description,
                 "HP       | {hp_min:^min_w$} | {hp_avg:^avg_w$} | {hp_max:^max_w$}",
             );
 
@@ -660,6 +655,11 @@ impl ProfileMenu {
                     );
                 }
             }
+
+            let _ = writeln!(
+                description,
+                "Length   | {len_min:^min_w$} | {len_avg:^avg_w$} | {len_max:^max_w$}",
+            );
 
             description.push_str("```");
         } else {
