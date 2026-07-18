@@ -603,12 +603,7 @@ impl ProfileMenu {
 
             let _ = writeln!(
                 description,
-                "AR       | {ar_min:^min_w$} | {ar_avg:^avg_w$} | {ar_max:^max_w$}",
-            );
-
-            let _ = writeln!(
-                description,
-                "CS       | {cs_min:^min_w$} | {cs_avg:^avg_w$} | {cs_max:^max_w$}",
+                "BPM      | {bpm_min:^min_w$} | {bpm_avg:^avg_w$} | {bpm_max:^max_w$}",
             );
 
             let _ = writeln!(
@@ -616,15 +611,50 @@ impl ProfileMenu {
                 "HP       | {hp_min:^min_w$} | {hp_avg:^avg_w$} | {hp_max:^max_w$}",
             );
 
-            let _ = writeln!(
-                description,
-                "OD       | {od_min:^min_w$} | {od_avg:^avg_w$} | {od_max:^max_w$}",
-            );
+            match mode {
+                GameMode::Catch => {
+                    let _ = writeln!(
+                        description,
+                        "AR       | {ar_min:^min_w$} | {ar_avg:^avg_w$} | {ar_max:^max_w$}",
+                    );
 
-            let _ = writeln!(
-                description,
-                "BPM      | {bpm_min:^min_w$} | {bpm_avg:^avg_w$} | {bpm_max:^max_w$}",
-            );
+                    let _ = writeln!(
+                        description,
+                        "CS       | {cs_min:^min_w$} | {cs_avg:^avg_w$} | {cs_max:^max_w$}",
+                    );
+                }
+
+                GameMode::Mania => {
+                    let _ = writeln!(
+                        description,
+                        "OD       | {od_min:^min_w$} | {od_avg:^avg_w$} | {od_max:^max_w$}",
+                    );
+                }
+
+                GameMode::Taiko => {
+                    let _ = writeln!(
+                        description,
+                        "OD       | {od_min:^min_w$} | {od_avg:^avg_w$} | {od_max:^max_w$}",
+                    );
+                }
+
+                GameMode::Osu => {
+                    let _ = writeln!(
+                        description,
+                        "AR       | {ar_min:^min_w$} | {ar_avg:^avg_w$} | {ar_max:^max_w$}",
+                    );
+
+                    let _ = writeln!(
+                        description,
+                        "CS       | {cs_min:^min_w$} | {cs_avg:^avg_w$} | {cs_max:^max_w$}",
+                    );
+
+                    let _ = writeln!(
+                        description,
+                        "OD       | {od_min:^min_w$} | {od_avg:^avg_w$} | {od_max:^max_w$}",
+                    );
+                }
+            }
 
             let _ = writeln!(
                 description,
