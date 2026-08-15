@@ -21,7 +21,7 @@ use time::{
     Date, OffsetDateTime,
     format_description::{
         Component, FormatItem,
-        modifier::{Day, Month, Padding, Year},
+        modifier::{CalendarYearFullStandardRange, Day, MonthNumerical, Padding},
     },
 };
 use twilight_interactions::command::{CommandOption, CreateOption};
@@ -560,20 +560,16 @@ mod history {
     use super::*;
 
     const DATE_FORMAT: &[FormatItem<'_>] = &[
-        FormatItem::Component(Component::Year(Year::default())),
-        FormatItem::Literal(b"-"),
-        FormatItem::Component(Component::Month({
-            let mut month = Month::default();
-            month.padding = Padding::None;
-
-            month
+        FormatItem::Component(Component::CalendarYearFullStandardRange(
+            CalendarYearFullStandardRange::default(),
+        )),
+        FormatItem::StringLiteral("-"),
+        FormatItem::Component(Component::MonthNumerical({
+            MonthNumerical::default().with_padding(Padding::None)
         })),
-        FormatItem::Literal(b"-"),
+        FormatItem::StringLiteral("-"),
         FormatItem::Component(Component::Day({
-            let mut day = Day::default();
-            day.padding = Padding::None;
-
-            day
+            Day::default().with_padding(Padding::None)
         })),
     ];
 

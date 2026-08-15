@@ -93,9 +93,9 @@ pub async fn get_national_snipes(
 ) -> Result<Vec<SnipeRecent>> {
     pub const DATETIME_FORMAT: &[FormatItem<'_>] = &[
         FormatItem::Compound(DATE_FORMAT),
-        FormatItem::Literal(b"T"),
+        FormatItem::StringLiteral("T"),
         FormatItem::Compound(TIME_FORMAT),
-        FormatItem::Literal(b"Z"),
+        FormatItem::StringLiteral("Z"),
     ];
 
     let url = format!(

@@ -4,7 +4,10 @@ use time::{
     OffsetDateTime,
     format_description::{
         Component, FormatItem,
-        modifier::{Day, Hour, Minute, Month, OffsetHour, OffsetMinute, Second, Year},
+        modifier::{
+            CalendarYearFullStandardRange, Day, Hour24, Minute, MonthNumerical, OffsetHour,
+            OffsetMinute, Second,
+        },
     },
 };
 
@@ -132,54 +135,56 @@ impl Display for HowLongAgoDynamic {
 }
 
 pub const DATE_FORMAT: &[FormatItem<'_>] = &[
-    FormatItem::Component(Component::Year(Year::default())),
-    FormatItem::Literal(b"-"),
-    FormatItem::Component(Component::Month(Month::default())),
-    FormatItem::Literal(b"-"),
+    FormatItem::Component(Component::CalendarYearFullStandardRange(
+        CalendarYearFullStandardRange::default(),
+    )),
+    FormatItem::StringLiteral("-"),
+    FormatItem::Component(Component::MonthNumerical(MonthNumerical::default())),
+    FormatItem::StringLiteral("-"),
     FormatItem::Component(Component::Day(Day::default())),
 ];
 
 pub const TIME_FORMAT: &[FormatItem<'_>] = &[
-    FormatItem::Component(Component::Hour(<Hour>::default())),
-    FormatItem::Literal(b":"),
+    FormatItem::Component(Component::Hour24(<Hour24>::default())),
+    FormatItem::StringLiteral(":"),
     FormatItem::Component(Component::Minute(<Minute>::default())),
-    FormatItem::Literal(b":"),
+    FormatItem::StringLiteral(":"),
     FormatItem::Component(Component::Second(<Second>::default())),
 ];
 
 pub const SHORT_TIME_FORMAT: &[FormatItem<'_>] = &[
-    FormatItem::Component(Component::Hour(<Hour>::default())),
-    FormatItem::Literal(b":"),
+    FormatItem::Component(Component::Hour24(<Hour24>::default())),
+    FormatItem::StringLiteral(":"),
     FormatItem::Component(Component::Minute(<Minute>::default())),
 ];
 
 pub const OFFSET_FORMAT: &[FormatItem<'_>] = &[
     FormatItem::Component(Component::OffsetHour(OffsetHour::default())),
-    FormatItem::Literal(b":"),
+    FormatItem::StringLiteral(":"),
     FormatItem::Component(Component::OffsetMinute(OffsetMinute::default())),
 ];
 
 pub const NAIVE_DATETIME_FORMAT: &[FormatItem<'_>] = &[
     FormatItem::Compound(DATE_FORMAT),
-    FormatItem::Literal(b" "),
+    FormatItem::StringLiteral(" "),
     FormatItem::Compound(TIME_FORMAT),
 ];
 
 pub const SHORT_NAIVE_DATETIME_FORMAT: &[FormatItem<'_>] = &[
     FormatItem::Compound(DATE_FORMAT),
-    FormatItem::Literal(b" "),
+    FormatItem::StringLiteral(" "),
     FormatItem::Compound(SHORT_TIME_FORMAT),
 ];
 
 pub const DATETIME_FORMAT: &[FormatItem<'_>] = &[
     FormatItem::Compound(DATE_FORMAT),
-    FormatItem::Literal(b"T"),
+    FormatItem::StringLiteral("T"),
     FormatItem::Compound(TIME_FORMAT),
 ];
 
 pub const DATETIME_Z_FORMAT: &[FormatItem<'_>] = &[
     FormatItem::Compound(DATETIME_FORMAT),
-    FormatItem::Literal(b"Z"),
+    FormatItem::StringLiteral("Z"),
 ];
 
 #[cfg(test)]
