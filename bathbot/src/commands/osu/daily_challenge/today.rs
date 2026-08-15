@@ -68,8 +68,7 @@ pub(super) async fn today(orig: CommandOrigin<'_>) -> Result<()> {
 pub struct DailyChallengeDay {
     pub map: OsuMap,
     pub leaderboard: Vec<RoomLeaderboardItem>,
-    pub scores: HashMap<u32, DailyChallengeScore, IntHasher>, /* TODO: slim down Score into
-                                                               * smaller type */
+    pub scores: HashMap<u32, DailyChallengeScore, IntHasher>,
     pub author: AuthorBuilder,
     pub footer: FooterBuilder,
     pub description: String,
