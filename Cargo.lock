@@ -1659,7 +1659,7 @@ dependencies = [
  "hyper",
  "libc",
  "pin-project-lite",
- "socket2 0.6.5",
+ "socket2 0.5.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -2942,7 +2942,7 @@ dependencies = [
 [[package]]
 name = "rosu-v2"
 version = "0.11.0"
-source = "git+https://github.com/MaxOhn/rosu-v2?branch=lazer#eac686a7ce59e12304ceea2e00a745e5a63282be"
+source = "git+https://github.com/MaxOhn/rosu-v2?branch=lazer#a4788038036f56ad4fea45090bccad8a633aa0c9"
 dependencies = [
  "bytes",
  "futures",
@@ -4537,7 +4537,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
