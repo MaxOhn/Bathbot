@@ -731,13 +731,16 @@ pub struct OsekaiBadge {
 pub struct OsekaiBadgeUser {
     #[serde(rename = "User_ID")]
     pub user_id: u32,
-    #[serde(rename = "Username")]
+    #[serde(rename = "Username", deserialize_with = "deser_badge_username")]
     #[rkyv(with = DerefAsString)]
     pub username: Box<str>,
-    // TODO: remove `Option` once API includes country_code
     #[serde(rename = "Country_Code")]
     #[rkyv(with = Map<DerefAsString>)]
     pub country_code: Option<CountryCode>,
+}
+
+fn deser_badge_username<'de, D: Deserializer<'de>>(d: D) -> Result<Box<str>, D::Error> {
+    Option::<Box<str>>::deserialize(d).map(Option::unwrap_or_default)
 }
 
 #[derive(Deserialize)]
@@ -1087,5 +1090,46 @@ mod tests {
         } = serde_json::from_str(JSON).unwrap();
 
         println!("{data:#?}");
+    }
+
+    #[test]
+    fn deserialize_badges() {
+        const JSON: &str = r#"
+{
+    "_dev":"Compressed response. Remove 'compress' parameter for human-readable form.",
+    "success":true,
+    "message":"ok",
+    "content":{
+        "_t":true,
+        "k":["ID","Name","Image_URL","Users","First_Date_Awarded","Description","RealName"],
+        "d":[
+            [
+                1450,
+                "etfards_trios_ascension_winner",
+                "https:\/\/assets.ppy.sh\/profile-badges\/etfards-trios-ascension-winner.png",
+                {
+                    "_t":true,
+                    "k":["User_ID","Date_Awarded","Username","Country_Code"],
+                    "d":[
+                        [14388839,"2026-08-06 03:15:26","GabberSS","PH"],
+                        [12197743,"2026-05-10 21:46:27",null,null],
+                        [12739835,"2026-05-10 21:46:25","villix","RU"]
+                    ],
+                    "types":["integer","string","string","string"]
+                },
+                "2026-05-10 21:46:18",
+                "Hedge Hop Madness: Shadow Market Heist Winning Team",
+                "hedge-hop-madness-shadow-market-heist-winner.png"
+            ]
+        ],
+        "types":["integer","string","string","array","string","string","string"]
+    }
+}"#;
+
+        let OsekaiInex {
+            content: OsekaiBadges(badges),
+        } = serde_json::from_str(JSON).unwrap();
+
+        println!("{badges:#?}");
     }
 }
