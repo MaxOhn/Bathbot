@@ -26,7 +26,7 @@ pub(super) mod option_f32_string {
 
         #[inline]
         fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
-            d.deserialize_str(F32String).map(Some)
+            d.deserialize_any(F32String).map(Some)
         }
 
         #[inline]
@@ -87,7 +87,7 @@ pub(super) mod option_u32_string {
 
         #[inline]
         fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
-            d.deserialize_str(U32String).map(Some)
+            d.deserialize_any(U32String).map(Some)
         }
 
         #[inline]
@@ -144,7 +144,7 @@ pub(super) mod option_u64_string {
 
         #[inline]
         fn visit_some<D: Deserializer<'de>>(self, d: D) -> Result<Self::Value, D::Error> {
-            d.deserialize_str(U64String).map(Some)
+            d.deserialize_any(U64String).map(Some)
         }
 
         #[inline]
