@@ -60,7 +60,7 @@ pub(super) async fn players(orig: CommandOrigin<'_>, mut args: OsuStatsPlayers<'
                 }
             }
         } else {
-            *country = country.to_uppercase().into()
+            *country = country.to_uppercase()
         }
     }
 

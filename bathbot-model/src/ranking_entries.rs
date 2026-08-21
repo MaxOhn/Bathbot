@@ -20,7 +20,7 @@ impl<V> From<UserStatsEntry<V>> for RankingEntry<V> {
     #[inline]
     fn from(entry: UserStatsEntry<V>) -> Self {
         Self {
-            country: Some(unsafe { CountryCode::from_buf_unchecked(entry.country) }),
+            country: Some(unsafe { CountryCode::from_utf8_unchecked(entry.country) }),
             name: entry.name.into(),
             value: entry.value,
         }

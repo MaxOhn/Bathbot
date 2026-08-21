@@ -423,7 +423,8 @@ impl From<KittenRoleplayCountries> for SnipeCountries {
             .full
             .into_iter()
             .chain(countries.partial)
-            .map(|country| country.code.into_boxed_str())
+            // TODO: keep compact_str?
+            .map(|country| country.code.into_string().into_boxed_str())
             .collect();
 
         Self { country_codes }
