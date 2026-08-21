@@ -1,10 +1,10 @@
 use std::{
-    borrow::Cow,
     collections::BTreeMap,
     fmt::{Formatter, Result as FmtResult},
 };
 
-use bathbot_util::{CowUtils, osu::ModSelection};
+use bathbot_util::osu::ModSelection;
+use compact_str::CompactString;
 use rkyv::{
     Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize, string::ArchivedString,
 };
@@ -27,10 +27,7 @@ use time::{
 use twilight_interactions::command::{CommandOption, CreateOption};
 
 use super::deser;
-use crate::{
-    KittenRoleplayCountries,
-    rkyv_util::{DerefAsString, MapBoxedSlice},
-};
+use crate::KittenRoleplayCountries;
 
 pub struct SnipeScoreParams {
     pub user_id: u32,
@@ -407,8 +404,7 @@ impl<'de> Deserialize<'de> for SnipeScore {
 
 #[derive(Debug, Archive, RkyvDeserialize, RkyvSerialize)]
 pub struct SnipeCountries {
-    #[rkyv(with = MapBoxedSlice<DerefAsString>)]
-    country_codes: Box<[Box<str>]>,
+    country_codes: Box<[CompactString]>,
 }
 
 impl SnipeCountries {
@@ -423,8 +419,7 @@ impl From<KittenRoleplayCountries> for SnipeCountries {
             .full
             .into_iter()
             .chain(countries.partial)
-            // TODO: keep compact_str?
-            .map(|country| country.code.into_string().into_boxed_str())
+            .map(|country| country.code)
             .collect();
 
         Self { country_codes }
@@ -434,7 +429,7 @@ impl From<KittenRoleplayCountries> for SnipeCountries {
 impl SnipeCountries {
     pub fn contains(&self, country_code: &str) -> bool {
         self.country_codes
-            .binary_search_by_key(&country_code, Box::as_ref)
+            .binary_search_by_key(&country_code, CompactString::as_str)
             .is_ok()
     }
 }
@@ -462,17 +457,18 @@ impl<'de> Deserialize<'de> for SnipeCountries {
                 #[derive(Deserialize)]
                 struct SnipeCountry {
                     #[serde(deserialize_with = "snipe_country_code")]
-                    country_code: Box<str>,
+                    country_code: CompactString,
                 }
 
-                fn snipe_country_code<'de, D>(d: D) -> Result<Box<str>, D::Error>
+                fn snipe_country_code<'de, D>(d: D) -> Result<CompactString, D::Error>
                 where
                     D: Deserializer<'de>,
                 {
-                    match <&str as Deserialize>::deserialize(d)?.cow_to_ascii_uppercase() {
-                        Cow::Borrowed(country_code) => Ok(Box::from(country_code)),
-                        Cow::Owned(country_code) => Ok(country_code.into_boxed_str()),
-                    }
+                    <CompactString as Deserialize>::deserialize(d).map(|mut s| {
+                        s.make_ascii_uppercase();
+
+                        s
+                    })
                 }
 
                 let mut country_codes = Vec::with_capacity(seq.size_hint().unwrap_or(64));

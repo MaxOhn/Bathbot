@@ -311,6 +311,7 @@ version = "3.23.4"
 dependencies = [
  "bathbot-util",
  "bitflags 2.13.1",
+ "compact_str",
  "eyre",
  "form_urlencoded",
  "http",
@@ -660,6 +661,7 @@ dependencies = [
  "castaway",
  "cfg-if",
  "itoa",
+ "rkyv",
  "serde",
  "static_assertions",
  "zmij",
