@@ -45,6 +45,7 @@ use self::{
     sniped::sniped_graph,
     top_date::top_graph_date,
     top_index::top_graph_index,
+    top_ranked_date::top_graph_ranked_date,
     top_time::{top_graph_time_day, top_graph_time_hour},
 };
 use super::{SnipeGameMode, UserIdResult, require_link, user_not_found};
@@ -72,6 +73,7 @@ mod snipe_count;
 mod sniped;
 mod top_date;
 mod top_index;
+mod top_ranked_date;
 mod top_time;
 
 #[derive(CommandModel, CreateCommand, SlashCommand)]
@@ -344,6 +346,8 @@ pub struct GraphTop {
 pub enum GraphTopOrder {
     #[option(name = "Date", value = "date")]
     Date,
+    #[option(name = "Ranked date", value = "ranked_date")]
+    RankedDate,
     #[option(name = "Index", value = "index")]
     Index,
     #[option(name = "Time by hour", value = "time_h")]
@@ -887,6 +891,9 @@ async fn top_graph(
         GraphTopOrder::Date => top_graph_date(caption, &mut scores)
             .await
             .wrap_err("Failed to create top date graph"),
+        GraphTopOrder::RankedDate => top_graph_ranked_date(caption, &scores)
+            .await
+            .wrap_err("Failed to create top ranked date graph"),
         GraphTopOrder::Index => top_graph_index(caption, &scores)
             .await
             .wrap_err("Failed to create top index graph"),
