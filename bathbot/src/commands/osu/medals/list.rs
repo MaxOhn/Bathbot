@@ -1,10 +1,7 @@
-use std::{
-    cmp::{Ordering, Reverse},
-    collections::HashMap,
-};
+use std::{cmp::Ordering, collections::HashMap};
 
 use bathbot_macros::command;
-use bathbot_model::OsekaiMedal;
+use bathbot_model::{MEDAL_GROUPS, MedalGroup, OsekaiMedal};
 use bathbot_util::{IntHasher, constants::GENERAL_ISSUE, matcher};
 use eyre::{Report, Result};
 use rkyv::rancor::{Panic, ResultExt};
@@ -40,6 +37,7 @@ impl<'m> MedalList<'m> {
             sort: None,
             group: None,
             reverse: None,
+            grouped: None,
         }
     }
 }
@@ -81,6 +79,7 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
         sort,
         group,
         reverse,
+        grouped,
         ..
     } = args;
 
@@ -154,46 +153,89 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
         medals.retain(|entry| entry.medal.grouping == group);
     }
 
-    let order_str = match sort.unwrap_or_default() {
-        MedalListOrder::Alphabet => {
-            medals.sort_unstable_by(|a, b| a.medal.name.cmp(&b.medal.name));
+    let sort = sort.unwrap_or_default();
+    let grouped = grouped == Some(true);
 
-            "alphabet"
-        }
-        MedalListOrder::Date => {
-            medals.sort_unstable_by_key(|entry| Reverse(entry.achieved));
-
-            "date"
-        }
-        MedalListOrder::MedalId => {
-            medals.sort_unstable_by_key(|entry| entry.medal.medal_id);
-
-            "medal id"
-        }
-        MedalListOrder::Rarity => {
-            medals.sort_unstable_by(|a, b| {
-                a.rarity.partial_cmp(&b.rarity).unwrap_or(Ordering::Equal)
-            });
-
-            "rarity"
-        }
+    let order_str = match sort {
+        MedalListOrder::Alphabet => "alphabet",
+        MedalListOrder::Date => "date",
+        MedalListOrder::MedalId => "medal id",
+        MedalListOrder::Rarity => "rarity",
     };
 
-    let reverse_str = if reverse == Some(true) {
-        medals.reverse();
+    let mut entries: Vec<MedalListEntry> = medals.into_iter().map(MedalListEntry::Medal).collect();
 
-        "reversed "
-    } else {
-        ""
+    if grouped {
+        for group in MEDAL_GROUPS {
+            let present = entries.iter().any(
+                |entry| matches!(entry, MedalListEntry::Medal(m) if m.medal.grouping == group),
+            );
+
+            if present {
+                entries.push(MedalListEntry::Group(group));
+            }
+        }
+    }
+
+    let reverse = reverse == Some(true);
+
+    let by_key = |a: &MedalEntryList, b: &MedalEntryList| {
+        let ord = key_cmp(&sort, a, b);
+
+        if reverse { ord.reverse() } else { ord }
     };
 
-    let medal_ids: Vec<_> = medals.iter().map(|medal| medal.medal.medal_id).collect();
+    entries.sort_unstable_by(|a, b| {
+        if grouped {
+            let group_a = match a {
+                MedalListEntry::Group(group) => *group,
+                MedalListEntry::Medal(medal) => medal.medal.grouping,
+            };
+            let group_b = match b {
+                MedalListEntry::Group(group) => *group,
+                MedalListEntry::Medal(medal) => medal.medal.grouping,
+            };
+
+            let group_cmp = if reverse {
+                group_b.cmp(&group_a)
+            } else {
+                group_a.cmp(&group_b)
+            };
+
+            group_cmp.then_with(|| match (a, b) {
+                (MedalListEntry::Group(_), MedalListEntry::Medal(_)) => Ordering::Less,
+                (MedalListEntry::Medal(_), MedalListEntry::Group(_)) => Ordering::Greater,
+                (MedalListEntry::Medal(a), MedalListEntry::Medal(b)) => by_key(a, b),
+                (MedalListEntry::Group(_), MedalListEntry::Group(_)) => Ordering::Equal,
+            })
+        } else {
+            match (a, b) {
+                (MedalListEntry::Medal(a), MedalListEntry::Medal(b)) => by_key(a, b),
+                _ => Ordering::Equal,
+            }
+        }
+    });
+
+    let reverse_str = if reverse { "reversed " } else { "" };
+
+    let medal_ids: Vec<_> = entries
+        .iter()
+        .filter_map(|entry| match entry {
+            MedalListEntry::Medal(medal) => Some(medal.medal.medal_id),
+            MedalListEntry::Group(_) => None,
+        })
+        .collect();
 
     let image = match Context::redis().medal_icons(&medal_ids).await {
         Ok(mut icons) => {
             icons.sort_unstable_by(|(a, _), (b, _)| {
-                let idx_a = medals.iter().position(|m| m.medal.medal_id == *a);
-                let idx_b = medals.iter().position(|m| m.medal.medal_id == *b);
+                let position_fn = |m: &MedalListEntry, id: u32| match m {
+                    MedalListEntry::Medal(medal) => medal.medal.medal_id == id,
+                    MedalListEntry::Group(_) => false,
+                };
+
+                let idx_a = entries.iter().position(|m| position_fn(m, *a));
+                let idx_b = entries.iter().position(|m| position_fn(m, *b));
 
                 idx_a.cmp(&idx_b)
             });
@@ -214,19 +256,23 @@ pub(super) async fn list(orig: CommandOrigin<'_>, args: MedalList<'_>) -> Result
         }
     };
 
+    let grouped_str = if grouped { " (grouped)" } else { "" };
+
     let name = user.username.as_str();
 
     let content = match group {
-        None => format!("All medals of `{name}` sorted by {reverse_str}{order_str}:",),
-        Some(group) => {
-            format!("All `{group}` medals of `{name}` sorted by {reverse_str}{order_str}:",)
+        None => {
+            format!("All medals of `{name}` sorted by {reverse_str}{order_str}{grouped_str}:")
         }
+        Some(group) => format!(
+            "All `{group}` medals of `{name}` sorted by {reverse_str}{order_str}{grouped_str}:"
+        ),
     };
 
     let pagination = MedalsListPagination::builder()
         .user(user)
         .acquired(acquired)
-        .medals(medals.into_boxed_slice())
+        .medals(entries.into_boxed_slice())
         .content(content.into_boxed_str())
         .msg_owner(owner)
         .build();
@@ -242,4 +288,18 @@ pub struct MedalEntryList {
     pub medal: OsekaiMedal,
     pub achieved: OffsetDateTime,
     pub rarity: f64,
+}
+
+pub enum MedalListEntry {
+    Group(MedalGroup),
+    Medal(MedalEntryList),
+}
+
+fn key_cmp(sort: &MedalListOrder, a: &MedalEntryList, b: &MedalEntryList) -> Ordering {
+    match sort {
+        MedalListOrder::Alphabet => a.medal.name.cmp(&b.medal.name),
+        MedalListOrder::Date => b.achieved.cmp(&a.achieved),
+        MedalListOrder::MedalId => a.medal.medal_id.cmp(&b.medal.medal_id),
+        MedalListOrder::Rarity => a.rarity.partial_cmp(&b.rarity).unwrap_or(Ordering::Equal),
+    }
 }

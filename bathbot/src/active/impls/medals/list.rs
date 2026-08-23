@@ -16,7 +16,7 @@ use crate::{
         BuildPage, ComponentResult, IActiveMessage,
         pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
-    commands::osu::MedalEntryList,
+    commands::osu::MedalListEntry,
     manager::redis::osu::CachedUser,
     util::interaction::{InteractionComponent, InteractionModal},
 };
@@ -26,7 +26,7 @@ pub struct MedalsListPagination {
     user: CachedUser,
     acquired: (usize, usize),
     #[pagination(per_page = 10)]
-    medals: Box<[MedalEntryList]>,
+    medals: Box<[MedalListEntry]>,
     content: Box<str>,
     msg_owner: Id<UserMarker>,
     pages: Pages,
@@ -45,19 +45,32 @@ impl IActiveMessage for MedalsListPagination {
 
         let mut description = String::with_capacity(1024);
 
-        for (entry, i) in medals.iter().zip(pages.index() + 1..) {
-            let url = entry.medal.url();
-            let url = url.cow_replace("%25", "%");
+        let mut medal_num = self.medals[..idx]
+            .iter()
+            .filter(|entry| matches!(entry, MedalListEntry::Medal(_)))
+            .count();
 
-            let _ = writeln!(
-                description,
-                "**#{i} [{medal}]({url})**\n\
-                `{rarity:>5.2}%` • <t:{timestamp}:d> • {group}",
-                medal = entry.medal.name,
-                rarity = entry.rarity,
-                timestamp = entry.achieved.unix_timestamp(),
-                group = entry.medal.grouping,
-            );
+        for entry in medals.iter() {
+            match entry {
+                MedalListEntry::Group(group) => {
+                    let _ = writeln!(description, "\n__**{group}:**__");
+                }
+                MedalListEntry::Medal(entry) => {
+                    medal_num += 1;
+                    let url = entry.medal.url();
+                    let url = url.cow_replace("%25", "%");
+
+                    let _ = writeln!(
+                        description,
+                        "**#{medal_num} [{medal}]({url})**\n\
+                        `{rarity:>5.2}%` • <t:{timestamp}:d> • {group}",
+                        medal = entry.medal.name,
+                        rarity = entry.rarity,
+                        timestamp = entry.achieved.unix_timestamp(),
+                        group = entry.medal.grouping,
+                    );
+                }
+            }
         }
 
         let page = pages.curr_page();
