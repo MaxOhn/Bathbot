@@ -1,4 +1,7 @@
-use eyre::{ContextCompat, Result, WrapErr};
+use std::collections::HashMap;
+
+use bathbot_util::IntHasher;
+use eyre::{ContextCompat, Result, WrapErr, bail};
 use plotters::{
     prelude::{ChartBuilder, Circle, EmptyElement, IntoDrawingArea, SeriesLabelPosition},
     series::PointSeries,
@@ -11,23 +14,21 @@ use skia_safe::{EncodedImageFormat, surfaces};
 use time::OffsetDateTime;
 
 use super::{H, W};
-use crate::{commands::osu::graphs::LegendDraw, util::Monthly};
+use crate::{commands::osu::graphs::LegendDraw, manager::OsuMap, util::Monthly};
 
-/// Returns the ranked date of a score's mapset, if the score has one
-pub fn ranked_date(score: &Score) -> Option<OffsetDateTime> {
-    // `last_updated` is the only available datetime which should be what we
-    // need considering top plays will all be ranked so that their
-    // "last updated" timestamp should match the ranked date.
-    score.map.as_ref().map(|map| map.last_updated)
-}
-
-pub async fn top_graph_ranked_date(caption: String, scores: &[Score]) -> Result<Vec<u8>> {
+pub async fn top_graph_ranked_date(
+    caption: String,
+    scores: &[Score],
+    maps: &HashMap<u32, OsuMap, IntHasher>,
+) -> Result<Vec<u8>> {
     let mut scored: Vec<(OffsetDateTime, &Score)> = Vec::new();
 
     for score in scores {
-        if let Some(date) = ranked_date(score) {
-            scored.push((date, score));
-        }
+        let Some(date) = maps.get(&score.map_id).and_then(|map| map.ranked_date()) else {
+            continue;
+        };
+
+        scored.push((date, score));
     }
 
     scored.sort_unstable_by_key(|(date, _)| *date);

@@ -891,9 +891,26 @@ async fn top_graph(
         GraphTopOrder::Date => top_graph_date(caption, &mut scores)
             .await
             .wrap_err("Failed to create top date graph"),
-        GraphTopOrder::RankedDate => top_graph_ranked_date(caption, &scores)
-            .await
-            .wrap_err("Failed to create top ranked date graph"),
+        GraphTopOrder::RankedDate => {
+            let maps_id_checksum = scores
+                .iter()
+                .map(|score| {
+                    (
+                        score.map_id as i32,
+                        score.map.as_ref().and_then(|map| map.checksum.as_deref()),
+                    )
+                })
+                .collect();
+
+            let maps = Context::osu_map()
+                .maps(&maps_id_checksum)
+                .await
+                .wrap_err("Failed to get maps")?;
+
+            top_graph_ranked_date(caption, &scores, &maps)
+                .await
+                .wrap_err("Failed to create top ranked date graph")
+        }
         GraphTopOrder::Index => top_graph_index(caption, &scores)
             .await
             .wrap_err("Failed to create top index graph"),
