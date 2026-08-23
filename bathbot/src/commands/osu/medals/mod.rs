@@ -164,6 +164,8 @@ pub struct MedalList<'a> {
     group: Option<MedalGroup>,
     #[command(desc = "Reverse the resulting medal list")]
     reverse: Option<bool>,
+    #[command(desc = "Separate the medals by their group")]
+    grouped: Option<bool>,
     #[command(desc = DISCORD_OPTION_DESC, help = DISCORD_OPTION_HELP)]
     discord: Option<Id<UserMarker>>,
 }
