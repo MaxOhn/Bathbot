@@ -89,7 +89,8 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
                 return Ok(());
             }
 
-            // Make sure the author is still an authority after applying new roles
+            // Make sure the author is still an authority after applying new
+            // roles
             if !(author_id == BotConfig::get().owner
                 || cache
                     .guild(guild_id)
@@ -208,7 +209,8 @@ pub async fn authorities(orig: CommandOrigin<'_>, args: AuthorityCommandKind) ->
         AuthorityCommandKind::Replace(roles) => {
             let author_id = orig.user_id()?;
 
-            // Make sure the author is still an authority after applying new roles
+            // Make sure the author is still an authority after applying new
+            // roles
             if !(author_id == BotConfig::get().owner
                 || cache
                     .guild(guild_id)

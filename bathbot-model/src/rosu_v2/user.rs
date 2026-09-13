@@ -13,7 +13,10 @@ use rkyv::{
     string::ArchivedString,
     with::{ArchiveWith, InlineAsBox, Map, MapNiche, SerializeWith},
 };
-use rosu_v2::prelude::{CountryCode, DailyChallengeUserStatistics, GameMode, Username};
+use rosu_v2::{
+    model::matchmaking::MatchmakingUserStats,
+    prelude::{CountryCode, DailyChallengeUserStatistics, GameMode, Username},
+};
 use time::{Date, OffsetDateTime};
 
 use crate::{
@@ -22,6 +25,7 @@ use crate::{
         DerefAsString, MapUnwrapOrDefault, UnwrapOrDefault,
         time::{DateRkyv, DateTimeRkyv},
     },
+    rosu_v2::matchmaking::MatchmakingUserStatsRkyv,
 };
 
 #[derive(Archive, Serialize)]
@@ -155,6 +159,8 @@ pub struct User {
     pub highest_rank: Option<UserHighestRank>,
     pub loved_mapset_count: u32,
     pub mapping_follower_count: u32,
+    #[rkyv(with = MapUnwrapOrDefault<MatchmakingUserStatsRkyv>)]
+    pub matchmaking_stats: Option<Vec<MatchmakingUserStats>>,
     #[rkyv(with = Map<MonthlyCountRkyv>)]
     pub monthly_playcounts: Vec<MonthlyCount>,
     pub rank_history: Box<[u32]>,
@@ -198,6 +204,7 @@ impl ArchiveWith<UserExtended> for User {
             ranked_mapset_count,
             scores_first_count,
             pending_mapset_count,
+            matchmaking_stats,
             monthly_playcounts,
             rank_history,
             replays_watched_counts,
@@ -265,6 +272,11 @@ impl ArchiveWith<UserExtended> for User {
             resolver.pending_mapset_count,
             pending_mapset_count,
         );
+        MapUnwrapOrDefault::<MatchmakingUserStatsRkyv>::resolve_with(
+            &user.matchmaking_stats,
+            resolver.matchmaking_stats,
+            matchmaking_stats,
+        );
         MapUnwrapOrDefault::<MonthlyCountRkyv>::resolve_with(
             &user.monthly_playcounts,
             resolver.monthly_playcounts,
@@ -295,8 +307,9 @@ impl ArchiveWith<UserExtended> for User {
     }
 }
 
-impl<S: Fallible<Error: Source> + Writer + Allocator + ?Sized> SerializeWith<UserExtended, S>
-    for User
+impl<S> SerializeWith<UserExtended, S> for User
+where
+    S: Fallible<Error: Source> + Writer + Allocator + ?Sized,
 {
     fn serialize_with(user: &UserExtended, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(UserResolver {
@@ -343,6 +356,10 @@ impl<S: Fallible<Error: Source> + Writer + Allocator + ?Sized> SerializeWith<Use
             )?,
             pending_mapset_count: UnwrapOrDefault::serialize_with(
                 &user.pending_mapset_count,
+                serializer,
+            )?,
+            matchmaking_stats: MapUnwrapOrDefault::<MatchmakingUserStatsRkyv>::serialize_with(
+                &user.matchmaking_stats,
                 serializer,
             )?,
             monthly_playcounts: MapUnwrapOrDefault::<MonthlyCountRkyv>::serialize_with(
@@ -395,6 +412,7 @@ impl From<UserExtended> for User {
             ranked_mapset_count: user.ranked_mapset_count.unwrap_or_default(),
             scores_first_count: user.scores_first_count.unwrap_or_default(),
             pending_mapset_count: user.pending_mapset_count.unwrap_or_default(),
+            matchmaking_stats: user.matchmaking_stats,
             monthly_playcounts: user.monthly_playcounts.unwrap_or_default(),
             rank_history: user
                 .rank_history

@@ -117,7 +117,8 @@ impl HigherLowerState {
 
                 let (tx, rx) = oneshot::channel();
 
-                // Create the image in the background so it's available when needed later
+                // Create the image in the background so it's available when
+                // needed later
                 tokio::spawn(async move {
                     let url = match ScorePp::image(&pfp1, &pfp2, mapset_id1, mapset_id2).await {
                         Ok(url) => url,

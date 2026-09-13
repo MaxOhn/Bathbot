@@ -423,7 +423,8 @@ impl Display for MapFormat<'_> {
         let title = self.title.len();
         let version = self.version.len();
 
-        // if the dots wouldn't save space, might as well not replace the content
+        // if the dots wouldn't save space, might as well not replace the
+        // content
         let tuple = |pre, post| {
             if pre <= post + TRIPLE_DOTS {
                 (pre, "")

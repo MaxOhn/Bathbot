@@ -77,9 +77,9 @@ impl EmbedBuilder {
     fn color(mut self, color: u32) -> Self {
         debug_assert!(color != 0, "color {color} must be non-zero");
 
-        // SAFETY: This method is private and only used for the RED and DARK_GREEN
-        // constants which are both non-zero but even if they were zero, it would have
-        // been caught with the debug_assert.
+        // SAFETY: This method is private and only used for the RED and
+        // DARK_GREEN constants which are both non-zero but even if they
+        // were zero, it would have been caught with the debug_assert.
         self.color = Some(unsafe { NonZeroU32::new_unchecked(color) });
 
         self

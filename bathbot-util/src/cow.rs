@@ -140,8 +140,9 @@ impl<'s> CowUtils<'s> for &'s str {
             Some(pos) => {
                 let mut output = self.to_owned();
 
-                // SAFETY: We already know the position of the first uppercase char,
-                // so no need to rescan the part before it.
+                // SAFETY: We already know the position of the first uppercase
+                // char, so no need to rescan the part before
+                // it.
                 unsafe { output.get_unchecked_mut(pos..) }.make_ascii_lowercase();
 
                 Cow::Owned(output)
@@ -165,8 +166,9 @@ impl<'s> CowUtils<'s> for &'s str {
             Some(pos) => {
                 let mut output = self.to_owned();
 
-                // SAFETY: We already know the position of the first lowercase char,
-                // so no need to rescan the part before it.
+                // SAFETY: We already know the position of the first lowercase
+                // char, so no need to rescan the part before
+                // it.
                 unsafe { output.get_unchecked_mut(pos..) }.make_ascii_uppercase();
 
                 Cow::Owned(output)

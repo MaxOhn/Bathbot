@@ -154,12 +154,14 @@ fn calculate_level(total_score: u64) -> f32 {
     let mut level: f32 = 0.0;
 
     while remaining_score > 0 {
-        // * if we're exceeding available array entries, continue using the requirement
+        // * if we're exceeding available array entries, continue using the
+        //   requirement
         // * for the highest level.
         let next_level_requirement =
             TO_NEXT_LEVEL[cmp::min(TO_NEXT_LEVEL.len() - 1, level.round() as usize)];
 
-        // * always increment by at most one level, but include the fractional portion
+        // * always increment by at most one level, but include the fractional
+        //   portion
         // * for the final level.
         level += (remaining_score as f32 / next_level_requirement as f32).min(1.0);
 
@@ -292,8 +294,8 @@ impl ModSelection {
 }
 
 pub fn flag_url(country_code: &str) -> String {
-    // format!("{OSU_BASE}/images/flags/{country_code}.png") // from osu itself but
-    // outdated
+    // format!("{OSU_BASE}/images/flags/{country_code}.png") // from osu itself
+    // but outdated
     flag_url_size(country_code, 256)
 }
 
@@ -474,8 +476,8 @@ impl Default for BonusPP {
 }
 
 impl BonusPP {
-    // The actual scores count is being limited to 1,000 in the SQL query resulting
-    // in a maximum slightly below 416.67 <https://github.com/ppy/osu-queue-score-statistics/blob/219183cdf1870fd8ce81f2a80b1fe6a4dad48688/osu.Server.Queues.ScoreStatisticsProcessor/Processors/UserTotalPerformanceProcessor.cs#L73>
+    // The actual scores count is being limited to 1,000 in the SQL query
+    // resulting in a maximum slightly below 416.67 <https://github.com/ppy/osu-queue-score-statistics/blob/219183cdf1870fd8ce81f2a80b1fe6a4dad48688/osu.Server.Queues.ScoreStatisticsProcessor/Processors/UserTotalPerformanceProcessor.cs#L73>
     const LIMIT: i32 = 1_000;
     const MAX: f32 = 413.89;
 

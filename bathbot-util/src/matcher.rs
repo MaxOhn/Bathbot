@@ -159,10 +159,12 @@ pub fn get_mods(msg: &str) -> Option<ModSelection> {
             let mut mods = GameModsIntermode::new();
 
             while !remaining.is_empty() {
-                // Split off the first two characters and check if it's an acronym
+                // Split off the first two characters and check if it's an
+                // acronym
                 let (candidate, rest) = split_prefix::<2>(remaining);
 
-                // SAFETY: `candidate` is guaranteed to be of length 2 and has been capitalized
+                // SAFETY: `candidate` is guaranteed to be of length 2 and has
+                // been capitalized
                 let acronym = unsafe { Acronym::from_str_unchecked(candidate) };
                 let gamemod = GameModIntermode::from_acronym(acronym);
 

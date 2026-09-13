@@ -156,8 +156,8 @@ impl Cache {
             .await
             .wrap_err("Failed to remove guild member entry")?;
 
-        // Note that in the case that the member has no more common guilds with us,
-        // its user data _won't_ be deleted.
+        // Note that in the case that the member has no more common guilds with
+        // us, its user data _won't_ be deleted.
         // There's no stored structure in place that provides a way to remove
         // such user data but it shouldn't matter much anyway.
 

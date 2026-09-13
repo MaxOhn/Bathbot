@@ -66,7 +66,8 @@ impl<'q, F: IFilterCriteria<'q>> FilterCriteria<F> {
             // If there is whitespace at the front, rotate to the left until
             // the string starts with the first non-whitespace char
             if let Some(shift) = start {
-                // SAFETY: The shift is given by .char_indices which is a valid idx
+                // SAFETY: The shift is given by .char_indices which is a valid
+                // idx
                 unsafe { search_text.as_bytes_mut() }.rotate_left(shift);
                 trunc_idx -= shift;
             }

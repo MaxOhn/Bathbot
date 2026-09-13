@@ -53,8 +53,8 @@ impl IActiveMessage for RankingPagination {
 
         self.assure_present_users(page).await?;
 
-        // Handle edge cases like idx=140;total=151 where two pages have to be requested
-        // at once
+        // Handle edge cases like idx=140;total=151 where two pages have to be
+        // requested at once
         self.assure_present_users(page + 1).await?;
 
         let idx = self.pages.index();

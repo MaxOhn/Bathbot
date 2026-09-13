@@ -310,9 +310,9 @@ impl IActiveMessage for MapPagination {
                 );
 
                 // preview.tryz.id supports only DT, HR and HD but it
-                // checks for them by simply `string.includes(two symbol acronym)`
-                // so it's safe to just dump all the mods if any present
-                // ^ https://github.com/FukutoTojido/beatmap-viewer-web/blob/058382c1069b2dfb4fdce4aae16220bddb80b452/src/app/Config/ExperimentalConfig.ts#L23-L34
+                // checks for them by simply `string.includes(two symbol
+                // acronym)` so it's safe to just dump all the
+                // mods if any present ^ https://github.com/FukutoTojido/beatmap-viewer-web/blob/058382c1069b2dfb4fdce4aae16220bddb80b452/src/app/Config/ExperimentalConfig.ts#L23-L34
                 if !self.mods.is_empty() {
                     let _ = write!(base_url, "&m={}", self.mods);
                 }

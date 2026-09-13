@@ -88,7 +88,8 @@ FROM
             );
 
             if lower_rank < higher_rank {
-                // "lower" DB entry was actually higher due to either entry being outdated
+                // "lower" DB entry was actually higher due to either entry
+                // being outdated
 
                 Ok(lower_rank)
             } else if (higher_pp - lower_pp).abs() <= f32::EPSILON {
@@ -199,7 +200,8 @@ FROM
             );
 
             if lower_pp > higher_pp {
-                // "lower" DB entry was actually higher due to either entry being outdated
+                // "lower" DB entry was actually higher due to either entry
+                // being outdated
 
                 Ok(lower_pp + 0.01)
             } else if lower_rank == higher_rank {

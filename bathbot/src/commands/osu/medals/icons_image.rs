@@ -94,8 +94,8 @@ fn optimal_tile_size(width: u32, height: u32, num_tiles: u32) -> u32 {
         }
     }
 
-    // Also check extreme arrangements that might be optimal for very rectangular
-    // spaces
+    // Also check extreme arrangements that might be optimal for very
+    // rectangular spaces
 
     // Check arrangements with few rows (wide arrangements)
     let max_rows_to_check = height.min(20); // Don't check too many

@@ -173,8 +173,8 @@ impl Context {
                 .unwrap()
                 .remove(&guild_id);
 
-            // If a guild is in the channel twice, only process the first and ignore the
-            // second
+            // If a guild is in the channel twice, only process the first and
+            // ignore the second
             if !removed_opt {
                 continue;
             }
