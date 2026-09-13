@@ -163,7 +163,8 @@ impl MatchLiveEmbed {
 
                     embeds.push(embed);
 
-                    // If the game is on-going and has no following game event, return early
+                    // If the game is on-going and has no following game event,
+                    // return early
                     if game.end_time.is_none() {
                         let last_game = lobby.events.get(i + 1..).is_none_or(|events| {
                             events.iter().all(|e| !matches!(e, MatchEvent::Game { .. }))
@@ -266,7 +267,8 @@ impl MatchLiveEmbed {
                         if state.game_id == curr_state.game_id && !curr_state.finished {
                             update.get_or_insert(false);
 
-                            // If the game is on-going and has no following game event, return early
+                            // If the game is on-going and has no following game
+                            // event, return early
                             let last_game = lobby.events.get(i + 1..).is_none_or(|events| {
                                 events.iter().all(|e| !matches!(e, MatchEvent::Game { .. }))
                             });
@@ -280,7 +282,8 @@ impl MatchLiveEmbed {
 
                         let (description, image, footer) = game_content(lobby, game);
 
-                        // Previous game not yet finished but next one already there => override
+                        // Previous game not yet finished but next one already
+                        // there => override
                         if !state.finished {
                             let (embed, empty) = match embeds.last_mut() {
                                 Some(embed) => (embed, false),
@@ -300,7 +303,8 @@ impl MatchLiveEmbed {
                             embed.footer = footer;
                             embed.state = last_state;
 
-                            // If the game is on-going and has no following game event, return early
+                            // If the game is on-going and has no following game
+                            // event, return early
                             if game.end_time.is_none() {
                                 let last_game = lobby.events.get(i + 1..).is_none_or(|events| {
                                     events.iter().all(|e| !matches!(e, MatchEvent::Game { .. }))
@@ -394,7 +398,8 @@ impl MatchLiveEmbed {
 
                             embeds.push(new_embed);
 
-                            // If the game is on-going and has no following game event, return early
+                            // If the game is on-going and has no following game
+                            // event, return early
                             if game.end_time.is_none() {
                                 let last_game = lobby.events.get(i + 1..).is_none_or(|events| {
                                     events.iter().all(|e| !matches!(e, MatchEvent::Game { .. }))

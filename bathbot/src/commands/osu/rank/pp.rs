@@ -884,8 +884,8 @@ impl RankData {
                     let factor = FACTOR.powi(i as i32);
 
                     if top + factor * each_f64 + bot >= rank_holder_pp {
-                        // requires n_each many new scores of `each` many pp and one
-                        // additional score
+                        // requires n_each many new scores of `each` many pp and
+                        // one additional score
                         n_each = i - idx;
                         break;
                     }
@@ -1086,8 +1086,8 @@ impl RankData {
                     let factor = FACTOR.powi(i as i32);
 
                     if top + factor * each_f64 + bot >= required_pp {
-                        // requires n_each many new scores of `each` many pp and one
-                        // additional score
+                        // requires n_each many new scores of `each` many pp and
+                        // one additional score
                         n_each = i - idx;
                         break;
                     }

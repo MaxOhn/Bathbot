@@ -172,8 +172,8 @@ impl RedisManager {
         let mut user = match Context::osu().user(user_id).mode(mode).await {
             Ok(user) => user,
             Err(err @ OsuError::NotFound) => {
-                // Remove stats of unknown/restricted users so they don't appear in the
-                // leaderboard
+                // Remove stats of unknown/restricted users so they don't appear
+                // in the leaderboard
                 if let Err(err) = Context::osu_user().remove_stats_and_scores(user_id).await {
                     warn!(?err, "Failed to remove stats of unknown user");
                 }

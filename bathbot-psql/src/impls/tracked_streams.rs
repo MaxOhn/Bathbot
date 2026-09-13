@@ -33,7 +33,8 @@ FROM
             let channel_id = Id::new(row.channel_id as u64);
             let user_id = row.user_id as u64;
 
-            // match instead of `.or_insert_with(...).push(...)` to avoid bounds check
+            // match instead of `.or_insert_with(...).push(...)` to avoid bounds
+            // check
             match tracks.entry(user_id) {
                 Entry::Vacant(e) => {
                     e.insert(vec![channel_id]);

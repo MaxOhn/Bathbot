@@ -218,7 +218,8 @@ impl SingleScorePagination {
             Ok(Some(video_url)) => {
                 let channel_id = component.message.channel_id;
 
-                // Spawn in new task so that we're sure to callback the component in time
+                // Spawn in new task so that we're sure to callback the
+                // component in time
                 tokio::spawn(async move {
                     let cached = CachedRender::new(score_id, video_url, true, owner);
                     let begin_fut = ActiveMessages::builder(cached).begin(channel_id);

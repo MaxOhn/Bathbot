@@ -92,7 +92,8 @@ pub async fn twitch_tracking_loop() {
             }
         };
 
-        // Generate random width and height to avoid discord caching the thumbnail url
+        // Generate random width and height to avoid discord caching the
+        // thumbnail url
         let (width, height) = {
             let mut rng = rand::thread_rng();
 

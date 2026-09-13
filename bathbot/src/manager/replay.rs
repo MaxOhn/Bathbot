@@ -26,8 +26,8 @@ impl ReplayManager {
             Err(err) => warn!(?err, "Failed to get replay from DB"),
         }
 
-        // If the replay of a score id was not in the database, yet we requested it
-        // already, that means the score has no available replay.
+        // If the replay of a score id was not in the database, yet we requested
+        // it already, that means the score has no available replay.
         let not_contained = self
             .cache
             .insert_into_set("__requested_replay_score_ids", score_id)

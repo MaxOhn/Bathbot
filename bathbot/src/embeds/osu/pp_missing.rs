@@ -126,7 +126,8 @@ impl PpMissingEmbed {
                     let bonus_pp = f64::max(stats_pp - (top + bot), 0.0);
                     top += bonus_pp;
 
-                    // requires n_each many new scores of `each` many pp and one additional score
+                    // requires n_each many new scores of `each` many pp and one
+                    // additional score
                     fn n_each_needed(
                         top: &mut f64,
                         each: f64,
@@ -168,7 +169,8 @@ impl PpMissingEmbed {
 
                         let accum = pps.accum_weighted();
 
-                        // Calculate the pp of the missing score after adding `n_each` many `each`
+                        // Calculate the pp of the missing score after adding
+                        // `n_each` many `each`
                         // pp scores
                         let total = accum + bonus_pp;
                         let (required, _) = pp_missing(total, goal_pp, pps.as_slice());

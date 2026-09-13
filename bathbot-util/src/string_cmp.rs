@@ -108,7 +108,8 @@ fn prefix(s: &str, len: usize) -> &str {
     let mut indices = s.char_indices();
     let end = indices.nth(len).map_or_else(|| s.len(), |(i, _)| i);
 
-    // SAFETY: `end` is provided by `char_indices` which ensues valid char bounds
+    // SAFETY: `end` is provided by `char_indices` which ensues valid char
+    // bounds
     unsafe { s.get_unchecked(..end) }
 }
 
@@ -116,7 +117,8 @@ fn suffix(s: &str, start: usize) -> &str {
     let mut indices = s.char_indices();
     let start = indices.nth(start).map_or_else(|| s.len(), |(i, _)| i);
 
-    // SAFETY: `start` is provided by `char_indices` which ensues valid char bounds
+    // SAFETY: `start` is provided by `char_indices` which ensues valid char
+    // bounds
     unsafe { s.get_unchecked(start..) }
 }
 

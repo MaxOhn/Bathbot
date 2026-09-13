@@ -528,7 +528,8 @@ impl RedisManager {
             .await
     }
 
-    // Mapset difficulty names for the autocomplete option of the compare command
+    // Mapset difficulty names for the autocomplete option of the compare
+    // command
     pub async fn cs_diffs(
         self,
         command: &InteractionCommand,

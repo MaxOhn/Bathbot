@@ -334,7 +334,8 @@ impl SkinValidation {
 
         let cb = |v| {
             let _ = violation_ptr.fetch_update(Relaxed, Relaxed, |ptr| {
-                // SAFETY: ptr comes from MaybeUninit and is thus aligned and safe to write
+                // SAFETY: ptr comes from MaybeUninit and is thus aligned and
+                // safe to write
                 unsafe { ptr.write(Some(v)) };
 
                 Some(ptr)

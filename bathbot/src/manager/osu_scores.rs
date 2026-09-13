@@ -224,8 +224,8 @@ impl ScoreArgs {
             let mut next_scores = match scores_res {
                 Ok(scores) => scores,
                 Err(OsuError::NotFound) => {
-                    // Remove stats of unknown/restricted users so they don't appear in the
-                    // leaderboard
+                    // Remove stats of unknown/restricted users so they don't
+                    // appear in the leaderboard
                     if let Err(err) = Context::osu_user().remove_stats_and_scores(user_id).await {
                         warn!(?err, "Failed to remove stats of unknown user");
                     }

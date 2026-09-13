@@ -463,8 +463,9 @@ impl IActiveMessage for RenderSettingsActive {
                 deferred = true;
                 let input = input.trim();
 
-                // We're not simply propagating errors because the modal must be deferred
-                // already so we need to respond properly
+                // We're not simply propagating errors because the modal must be
+                // deferred already so we need to respond
+                // properly
                 match Context::ordr().client().skin_list().search(input).await {
                     Ok(mut skin_list) => {
                         let skin_opt =

@@ -17,8 +17,10 @@ use plotters::{
 };
 use plotters_backend::FontStyle;
 use plotters_skia::SkiaBackend;
-use rkyv::Deserialize;
-use rkyv::rancor::{Panic, ResultExt, Strategy};
+use rkyv::{
+    Deserialize,
+    rancor::{Panic, ResultExt, Strategy},
+};
 use rosu_v2::prelude::OsuError;
 use skia_safe::{EncodedImageFormat, surfaces};
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -196,7 +198,8 @@ fn render_rating_graph(history: &[MatchmakingUserEloHistoryRkyv]) -> Result<Vec<
             (min.min(entry.elo_after), max.max(entry.elo_after))
         });
 
-    // Pad the rating range so that markers on the edges don't overflow the plot area
+    // Pad the rating range so that markers on the edges don't overflow the plot
+    // area
     let spread = max - min;
 
     let pad = if spread == 0 {
@@ -224,10 +227,11 @@ fn render_rating_graph(history: &[MatchmakingUserEloHistoryRkyv]) -> Result<Vec<
             stroke_width: 1,
         };
 
-        // A floating point x range maps match numbers continuously, so the first
-        // match sits exactly on the y axis and the last one exactly on the right
-        // border (an integer range would map discrete values to bin centers instead).
-        // Requesting n ticks yields exactly one integer tick per match (1..=n), and
+        // A floating point x range maps match numbers continuously, so the
+        // first match sits exactly on the y axis and the last one
+        // exactly on the right border (an integer range would map
+        // discrete values to bin centers instead). Requesting n ticks
+        // yields exactly one integer tick per match (1..=n), and
         // the label formatter renders the tick values as integers again.
         let mut chart = ChartBuilder::on(&root)
             .x_label_area_size(40)
@@ -251,8 +255,8 @@ fn render_rating_graph(history: &[MatchmakingUserEloHistoryRkyv]) -> Result<Vec<
             .draw()
             .wrap_err("Failed to draw mesh")?;
 
-        // The API returns the history in newest first order, so plot the matches in
-        // oldest first order, from left to right
+        // The API returns the history in newest first order, so plot the
+        // matches in oldest first order, from left to right
         let points: Vec<(f64, i32)> = history
             .iter()
             .rev()
