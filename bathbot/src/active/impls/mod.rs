@@ -25,6 +25,7 @@ pub use self::{
     osekai::{MedalCountPagination, MedalRarityPagination},
     osustats::{OsuStatsBestPagination, OsuStatsPlayersPagination, OsuStatsScoresPagination},
     profile::ProfileMenu,
+    ranked::{RankedPagination, build_embed},
     ranking::RankingPagination,
     ranking_countries::RankingCountriesPagination,
     recent_list::RecentListPagination,
@@ -59,6 +60,7 @@ mod nochoke;
 mod osekai;
 mod osustats;
 mod profile;
+mod ranked;
 mod ranking;
 mod ranking_countries;
 mod recent_list;

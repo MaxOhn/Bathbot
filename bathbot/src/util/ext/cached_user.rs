@@ -89,6 +89,7 @@ impl CachedUserExt for CachedUser {
                 username: _,
                 badges: _,
                 mapping_follower_count: _,
+                matchmaking_stats: _,
                 monthly_playcounts: _,
                 rank_history: _,
                 replays_watched_counts: _,

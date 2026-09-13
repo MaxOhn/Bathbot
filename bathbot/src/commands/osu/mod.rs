@@ -107,6 +107,7 @@ mod pinned;
 mod pp;
 mod profile;
 mod rank;
+mod ranked;
 mod ranking;
 mod ratios;
 mod recent;
