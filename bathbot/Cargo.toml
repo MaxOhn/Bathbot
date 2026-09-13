@@ -65,6 +65,7 @@ zmij = "1.0.21"
 default = []
 full = ["global_slash", "matchlive", "notify_osutrack", "server", "twitch", "twitchtracking"]
 
+allow_bot_messages = []
 global_slash = []
 matchlive = []
 server = ["bathbot-server", "twitch"]

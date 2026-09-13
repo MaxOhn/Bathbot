@@ -24,8 +24,9 @@ mod parse;
 pub async fn handle_message(msg: Message) {
     let start = Instant::now();
 
-    // Ignore bots and webhooks
-    if msg.author.bot || msg.webhook_id.is_some() {
+    // Ignore bots and webhooks. Bot messages are only processed when built
+    // with the `allow_bot_messages` feature.
+    if (msg.author.bot && !cfg!(feature = "allow_bot_messages")) || msg.webhook_id.is_some() {
         return;
     }
 
