@@ -237,6 +237,8 @@ impl<'a> TryFrom<CompareScoreAutocomplete<'a>> for CompareScoreArgs<'a> {
                 Some(MapOrScore::Map(id))
             } else if let Some((id, mode)) = matcher::get_osu_score_id(&arg) {
                 Some(MapOrScore::Score { id, mode })
+            } else if let Ok(id) = arg.parse::<u64>() {
+                Some(MapOrScore::Score { id, mode: None })
             } else {
                 let content =
                     "Failed to parse map url. Be sure you specify a valid map id or url to a map.";
