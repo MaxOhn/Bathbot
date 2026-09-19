@@ -200,6 +200,8 @@ impl<'m> CompareScoreArgs<'m> {
                 map = Some(MapOrScore::Score { id, mode })
             } else if matcher::get_mods(arg).is_some() {
                 mods = Some(arg.into());
+            } else if let Some(id) = matcher::get_osu_score_id_raw(arg) {
+                map = Some(MapOrScore::Score { id, mode })
             } else if let Some(id) = matcher::get_mention_user(arg) {
                 discord = Some(id);
             } else {

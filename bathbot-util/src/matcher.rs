@@ -115,6 +115,13 @@ pub fn get_osu_score_id(msg: &str) -> Option<(u64, Option<GameMode>)> {
         })
 }
 
+pub fn get_osu_score_id_raw(msg: &str) -> Option<u64> {
+    OSU_URL_RAW_ID_SCORE
+        .captures(msg)
+        .and_then(|c| c.get(1))
+        .and_then(|c| c.as_str().parse::<u64>().ok())
+}
+
 pub fn get_osu_match_id(msg: &str) -> Option<u32> {
     if let Ok(id) = msg.parse::<u32>() {
         return Some(id);
@@ -247,6 +254,8 @@ define_regex! {
     SEVEN_TWO_SEVEN: "(?P<num>7[.,]?2[.,]?7)";
 
     OSU_SCORE_URL_MATCHER: r"https://osu\.ppy\.sh/scores/(?:(osu|taiko|mania|fruits)/)?(\d+)";
+
+    OSU_URL_RAW_ID_SCORE: r"https://osu\.ppy\.sh/scores/(\d+)";
 
     APPROVED_SKIN_SITE: r"^https://(?:(?:www\.)?(?:drive\.google\.com|dropbox\.com|mega\.nz|mediafire\.com|(?:gist\.)?github\.com)/.*$|(?:skins\.osuck\.net/skins|osu\.ppy\.sh/community/forums/topics)/\d+.*|link.issou.best/skin/\d+$|skins\.osuck\.net/(?:authors|users)/\d+)";
 
