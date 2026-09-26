@@ -22,7 +22,7 @@ rand = { workspace = true }
 rosu-v2 = { workspace = true }
 rkyv = { workspace =  true }
 rustls = { workspace = true }
-ryu = { version = "1.0.15", default-features = false }
+zmij = { version = "1.0.21", default-features = false }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

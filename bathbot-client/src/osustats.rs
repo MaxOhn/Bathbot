@@ -9,8 +9,8 @@ use bytes::Bytes;
 use eyre::{Report, Result, WrapErr};
 use itoa::Buffer as IntBuffer;
 use rosu_v2::model::GameMode;
-use ryu::Buffer as FloatBuffer;
 use serde::de::DeserializeSeed;
+use zmij::Buffer as FloatBuffer;
 
 use crate::{Client, ClientError, multipart::Multipart, site::Site};
 

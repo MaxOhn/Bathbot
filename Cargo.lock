@@ -285,7 +285,6 @@ dependencies = [
  "rkyv",
  "rosu-v2",
  "rustls",
- "ryu",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
@@ -294,6 +293,7 @@ dependencies = [
  "tracing",
  "twilight-interactions",
  "twilight-model",
+ "zmij",
 ]
 
 [[package]]

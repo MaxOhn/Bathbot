@@ -1,6 +1,6 @@
 use itoa::{Buffer as IntBuffer, Integer};
 use rand::{Rng, distributions::Alphanumeric};
-use ryu::{Buffer as FloatBuffer, Float};
+use zmij::{Buffer as FloatBuffer, Float};
 
 const BOUNDARY_LEN: usize = 8;
 
