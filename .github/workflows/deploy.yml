@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout project
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Fix apt mirrors and install dependencies
         run: |
@@ -30,14 +30,10 @@ jobs:
           sudo apt-get install -y libfontconfig1-dev libfreetype-dev libpng-dev jq
 
       - name: Install rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Cache dependencies
-        uses: Swatinem/rust-cache@v1
+        uses: Swatinem/rust-cache@v2
 
       - name: Build
         run: cargo build --release --features full
