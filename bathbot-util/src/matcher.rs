@@ -51,7 +51,6 @@ fn get_mention(mention_type: MentionType, msg: &str) -> Option<u64> {
         .and_then(|c| c.as_str().parse().ok())
 }
 
-#[allow(dead_code)]
 pub fn get_osu_user_id(msg: &str) -> Option<OsuUserId> {
     OSU_URL_USER_MATCHER.captures(msg).and_then(|c| {
         c.get(1)
@@ -251,4 +250,47 @@ define_regex! {
     APPROVED_SKIN_SITE: r"^https://(?:(?:www\.)?(?:drive\.google\.com|dropbox\.com|mega\.nz|mediafire\.com|(?:gist\.)?github\.com)/.*$|(?:skins\.osuck\.net/skins|osu\.ppy\.sh/community/forums/topics)/\d+.*|link.issou.best/skin/\d+$|skins\.osuck\.net/(?:authors|users)/\d+)";
 
     pub QUERY_SYNTAX_REGEX: r#"\b(?P<key>\w+)(?P<op>(:|=|(>|<)(:|=)?))(?P<value>(".*")|(\S*))"#;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_user_url_by_id() {
+        let url = "https://osu.ppy.sh/users/12345";
+
+        assert_eq!(get_osu_user_id(url), Some(OsuUserId::Id(12345)));
+    }
+
+    #[test]
+    fn parse_user_url_by_id_short() {
+        let url = "https://osu.ppy.sh/u/67";
+
+        assert_eq!(get_osu_user_id(url), Some(OsuUserId::Id(67)));
+    }
+
+    #[test]
+    fn parse_user_url_by_id_singular() {
+        let url = "https://osu.ppy.sh/user/2211396";
+
+        assert_eq!(get_osu_user_id(url), Some(OsuUserId::Id(2211396)));
+    }
+
+    #[test]
+    fn parse_user_url_by_name() {
+        let url = "https://osu.ppy.sh/users/badewanne3";
+
+        assert_eq!(
+            get_osu_user_id(url),
+            Some(OsuUserId::Name("badewanne3".into()))
+        );
+    }
+
+    #[test]
+    fn non_user_url_returns_none() {
+        assert_eq!(get_osu_user_id("https://osu.ppy.sh/beatmapsets/123"), None);
+        assert_eq!(get_osu_user_id("badewanne3"), None);
+        assert_eq!(get_osu_user_id("12345"), None);
+    }
 }

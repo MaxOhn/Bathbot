@@ -63,7 +63,7 @@ macro_rules! user_id_mode {
 
 use std::{future::Future, pin::Pin};
 
-use bathbot_util::osu::ModsResult;
+use bathbot_util::{matcher::get_osu_user_id, osu::ModsResult};
 use eyre::{Report, Result, WrapErr};
 use rosu_v2::request::UserId;
 use twilight_interactions::command::{CommandOption, CreateOption};
@@ -139,7 +139,9 @@ pub enum UserIdResult {
 impl UserIdResult {
     pub fn process(name: Option<&str>, discord: Option<Id<UserMarker>>) -> Self {
         if let Some(name) = name {
-            Self::Id(UserId::Name(name.into()))
+            let user_id = get_osu_user_id(name).unwrap_or_else(|| UserId::Name(name.into()));
+
+            Self::Id(user_id)
         } else if let Some(id) = discord {
             Self::Future(Box::pin(UserIdFutureResult::process(id)))
         } else {
