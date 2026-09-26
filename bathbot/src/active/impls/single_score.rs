@@ -215,28 +215,6 @@ impl SingleScorePagination {
             Err(err) => return ComponentResult::Err(err),
         };
 
-        // Check if the score id has already been rendered
-        match Context::replay().get_video_url(score_id).await {
-            Ok(Some(video_url)) => {
-                let channel_id = component.message.channel_id;
-
-                // Spawn in new task so that we're sure to callback the
-                // component in time
-                tokio::spawn(async move {
-                    let cached = CachedRender::new(score_id, video_url, true, owner);
-                    let begin_fut = ActiveMessages::builder(cached).begin(channel_id);
-
-                    if let Err(err) = begin_fut.await {
-                        error!(?err, "Failed to begin cached render message");
-                    }
-                });
-
-                return ComponentResult::BuildPage;
-            }
-            Ok(None) => {}
-            Err(err) => warn!(?err),
-        }
-
         if let Some(cooldown) = Context::check_ratelimit(owner, BucketName::Render) {
             // Put the replay back so that the button can still be used
             data.replay_score_id = Some(score_id);
@@ -244,13 +222,51 @@ impl SingleScorePagination {
             return self.render_cooldown_response(component, cooldown).await;
         }
 
-        tokio::spawn(Self::render_response(
-            (component.message.id, component.message.channel_id),
+        let (msg_id, channel_id, permissions, guild_id) = (
+            component.message.id,
+            component.message.channel_id,
             component.permissions,
-            score_id,
-            owner,
             component.guild_id,
-        ));
+        );
+
+        // The cached-render / commission decision involves a Postgres read and
+        // a possible o!rdr call, which must not run inside Discord's
+        // component-callback window. Spawn it and ack the component with the
+        // rebuilt page; the spawned task replies to the user either way.
+        tokio::spawn(async move {
+            match Context::replay().get_video_url(score_id).await {
+                Ok(Some(video_url)) => {
+                    let cached = CachedRender::new(score_id, video_url, true, owner);
+                    let begin_fut = ActiveMessages::builder(cached).begin(channel_id);
+
+                    if let Err(err) = begin_fut.await {
+                        error!(?err, "Failed to begin cached render message");
+                    }
+                }
+                Ok(None) => {
+                    Self::render_response(
+                        (msg_id, channel_id),
+                        permissions,
+                        score_id,
+                        owner,
+                        guild_id,
+                    )
+                    .await;
+                }
+                Err(err) => {
+                    warn!(?err);
+
+                    Self::render_response(
+                        (msg_id, channel_id),
+                        permissions,
+                        score_id,
+                        owner,
+                        guild_id,
+                    )
+                    .await;
+                }
+            }
+        });
 
         ComponentResult::BuildPage
     }
