@@ -272,7 +272,7 @@ mod tests {
 
     #[test]
     fn parse_user_url_by_id_singular() {
-        let url = "https://osu.ppy.sh/user/2211396";
+        let url = "https://osu.ppy.sh/users/2211396";
 
         assert_eq!(get_osu_user_id(url), Some(OsuUserId::Id(2211396)));
     }
