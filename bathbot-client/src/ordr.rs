@@ -15,17 +15,18 @@ const ORDR_REMOVED_VIDEO: &str = "removedvideo";
 const ORDR_PROBE_TIMEOUT: Duration = Duration::from_secs(4);
 
 impl Client {
-    /// Whether the stored o!rdr watch-page `video_url` still points at a real video.
+    /// Whether the stored o!rdr watch-page `video_url` still points at a real
+    /// video.
     ///
-    /// o!rdr auto-deletes old replay videos. The stored `video_url` is a watch-page
-    /// (`https://link.issou.best/...`); for a deleted video it still returns
-    /// `200 text/html`, so a status-code check cannot detect the miss. Instead we
-    /// GET the page and read its `og:video` meta - o!rdr points that at a
-    /// `removedvideo.mp4` placeholder when the video is gone.
+    /// o!rdr auto-deletes old replay videos. The stored `video_url` is a
+    /// watch-page (`https://link.issou.best/...`); for a deleted video it still returns
+    /// `200 text/html`, so a status-code check cannot detect the miss. Instead
+    /// we GET the page and read its `og:video` meta - o!rdr points that at
+    /// a `removedvideo.mp4` placeholder when the video is gone.
     ///
     /// Fails open: any request/parse error is treated as "alive", so a slow or
-    /// unreachable o!rdr degrades to the previous behaviour (show the cached link)
-    /// rather than hiding a working one.
+    /// unreachable o!rdr degrades to the previous behaviour (show the cached
+    /// link) rather than hiding a working one.
     pub async fn is_ordr_video_alive(&self, video_url: &str) -> Result<bool> {
         let request = self.make_get_request(video_url, Site::Ordr);
 
