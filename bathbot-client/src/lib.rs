@@ -11,6 +11,7 @@ mod github;
 mod metrics;
 mod miss_analyzer;
 mod multipart;
+mod ordr;
 mod osekai;
 mod osu;
 mod osustats;

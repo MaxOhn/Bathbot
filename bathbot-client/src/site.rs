@@ -66,6 +66,7 @@ sites! {
     OsuProfile -> 1,
     OsuStats -> 2,
     OsuTrack -> 2,
+    Ordr -> 2,
     Relax -> 2,
     Respektive -> 1,
     Twitch -> 5,
