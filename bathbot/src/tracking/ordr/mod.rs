@@ -184,9 +184,7 @@ async fn poll_finished_renders(client: OrdrClient, senders: Arc<SenderMap>) {
                 // Do not hold the guard across any await, otherwise the write
                 // lock below (and any other subscriber of this shard) might
                 // deadlock.
-                let guard = senders.read(&render_id).await;
-
-                match guard.get() {
+                match senders.read(&render_id).await.get() {
                     Some(subscribers) => {
                         let done = subscribers.done.clone();
                         let failed = subscribers.failed.clone();
@@ -315,11 +313,12 @@ async fn handle_ordr_events(
                 match event {
                     RawEvent::RenderProgress(progress) => {
                         let render_id = progress.render_id;
-                        let sender = {
-                            let guard = senders.read(&render_id).await;
 
-                            guard.get().map(|senders| senders.progress.clone())
-                        };
+                        let sender = senders
+                            .read(&render_id)
+                            .await
+                            .get()
+                            .map(|senders| senders.progress.clone());
 
                         let Some(sender) = sender else {
                             trace!(render_id, "No subscribers for o!rdr render progress",);
@@ -344,11 +343,12 @@ async fn handle_ordr_events(
                     }
                     RawEvent::RenderDone(done) => {
                         let render_id = done.render_id;
-                        let sender = {
-                            let guard = senders.read(&render_id).await;
 
-                            guard.get().map(|senders| senders.done.clone())
-                        };
+                        let sender = senders
+                            .read(&render_id)
+                            .await
+                            .get()
+                            .map(|senders| senders.done.clone());
 
                         let Some(sender) = sender else {
                             trace!(render_id, "No subscribers for o!rdr render done",);
@@ -369,11 +369,12 @@ async fn handle_ordr_events(
                     }
                     RawEvent::RenderFailed(failed) => {
                         let render_id = failed.render_id;
-                        let sender = {
-                            let guard = senders.read(&render_id).await;
 
-                            guard.get().map(|senders| senders.failed.clone())
-                        };
+                        let sender = senders
+                            .read(&render_id)
+                            .await
+                            .get()
+                            .map(|senders| senders.failed.clone());
 
                         let Some(sender) = sender else {
                             trace!(render_id, "No subscribers for o!rdr render failed",);
