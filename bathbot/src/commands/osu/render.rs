@@ -276,17 +276,27 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
     };
 
     // Check if the score id has already been rendered
-    match Context::replay().get_video_url(score_id).await {
-        Ok(Some(video_url)) => {
-            let cached = CachedRender::new(score_id, video_url, false, owner);
-
-            return ActiveMessages::builder(cached)
-                .start_by_update(true)
-                .begin(&mut command)
-                .await;
+    let cached = match Context::replay().get_video_url(score_id).await {
+        Ok(Some(video_url)) if Context::replay().is_video_url_alive(&video_url).await => {
+            Some(CachedRender::new(score_id, video_url, false, owner))
         }
-        Ok(None) => {}
-        Err(err) => warn!(?err),
+        Ok(_) => {
+            // No cached video, or the stored link was deleted by o!rdr: render
+            // below.
+            None
+        }
+        Err(err) => {
+            warn!(?err);
+
+            None
+        }
+    };
+
+    if let Some(cached) = cached {
+        return ActiveMessages::builder(cached)
+            .start_by_update(true)
+            .begin(&mut command)
+            .await;
     }
 
     if let Some(cooldown) = Context::check_ratelimit(owner, BucketName::Render) {

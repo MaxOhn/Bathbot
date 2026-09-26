@@ -7,6 +7,8 @@ use rosu_render::model::{RenderOptions, RenderResolution, RenderSkinOption, Skin
 use rosu_v2::{Osu, error::OsuError};
 use twilight_model::id::{Id, marker::UserMarker};
 
+use crate::core::Context;
+
 #[derive(Copy, Clone)]
 pub struct ReplayManager {
     psql: &'static Database,
@@ -86,6 +88,25 @@ impl ReplayManager {
             .select_replay_video_url(score_id)
             .await
             .wrap_err("Failed to get replay video url")
+    }
+
+    /// Whether a stored o!rdr `video_url` still points at a live video.
+    ///
+    /// o!rdr auto-deletes old replay videos; a deleted link would otherwise be
+    /// offered as "send link". Fails open: on any error the video is assumed
+    /// alive, so a slow/unreachable o!rdr keeps the previous behaviour.
+    pub async fn is_video_url_alive(&self, video_url: &str) -> bool {
+        Context::client()
+            .is_ordr_video_alive(video_url)
+            .await
+            .unwrap_or_else(|err| {
+                warn!(
+                    ?err,
+                    video_url, "Failed to check o!rdr video url; assuming alive"
+                );
+
+                true
+            })
     }
 
     pub async fn store_video_url(&self, score_id: u64, video_url: &str) -> Result<()> {
