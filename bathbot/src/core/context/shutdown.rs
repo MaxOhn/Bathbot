@@ -48,10 +48,8 @@ impl Context {
             info!("Stopped match tracking in {count} channels");
         }
 
-        if let Some(ordr) = Context::try_ordr() {
-            info!("Disconnecting from ordr");
-            ordr.disconnect();
-        }
+        info!("Disconnecting from ordr");
+        Context::ordr().disconnect();
 
         if let Some(rx) = scores_ws_disconnect {
             let _: Result<_, _> = rx.await;

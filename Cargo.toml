@@ -57,7 +57,7 @@ rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2", branch = "lazer", default
 rosu-pp-older = { git = "https://github.com/MaxOhn/rosu-pp-older.git", branch = "main" }
 # rosu-pp-older = { path = "../../rosu-pp-older" }
 # rosu-render = { git = "https://github.com/MaxOhn/rosu-render", branch = "main", default-features = false, features = ["rustls-webpki-roots"] }
-rosu-render = { version = "0.5.1", default-features = false, features = ["rustls-webpki-roots"] }
+rosu-render = { version = "0.5.2", default-features = false, features = ["rustls-webpki-roots"] }
 rustls = { version = "0.23.20", default-features = false, features = ["std", "tls12"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }

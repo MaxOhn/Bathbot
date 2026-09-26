@@ -337,8 +337,7 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned<'_>) -> Result<()> {
 
     with_render &= settings.buttons.render
         && mode == GameMode::Osu
-        && orig.has_permission_to(Permissions::SEND_MESSAGES)
-        && Context::ordr_available();
+        && orig.has_permission_to(Permissions::SEND_MESSAGES);
 
     let origin = MessageOrigin::new(guild_id, orig.channel_id());
 

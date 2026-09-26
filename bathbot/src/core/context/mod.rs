@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, Mutex, OnceLock, RwLock},
-    time::Duration,
 };
 
 use bathbot_cache::Cache;
@@ -105,22 +104,8 @@ impl Context {
         &Self::get().clients.custom
     }
 
-    pub fn ordr_available() -> bool {
-        Self::get().clients.ordr.is_some()
-    }
-
-    pub fn try_ordr() -> Option<&'static Ordr> {
-        Self::get().clients.ordr.as_deref()
-    }
-
-    /// Panics if ordr is not available
-    #[track_caller]
     pub fn ordr() -> &'static Ordr {
-        Self::get()
-            .clients
-            .ordr
-            .as_deref()
-            .expect("ordr unavailable")
+        &Self::get().clients.ordr
     }
 
     pub fn psql() -> &'static Database {
@@ -232,27 +217,10 @@ impl Context {
             .await
             .wrap_err("Failed to create custom client")?;
 
-        let ordr_fut = Ordr::new(
+        let ordr = Arc::new(Ordr::new(
             #[cfg(not(debug_assertions))]
             config.tokens.ordr_key.as_ref(),
-        );
-
-        let ordr = match tokio::time::timeout(Duration::from_secs(20), ordr_fut).await {
-            Ok(Ok(ordr)) => Some(Arc::new(ordr)),
-            Ok(Err(err)) => {
-                error!(
-                    ?err,
-                    "Failed to create ordr client, initializing without it"
-                );
-
-                None
-            }
-            Err(_) => {
-                warn!("o!rdr timed out, initializing without it");
-
-                None
-            }
-        };
+        )?);
 
         let shards_iter = discord::gateway(config, &http, resume_data)
             .await
@@ -359,7 +327,7 @@ struct Clients {
     custom: BathbotClient,
     osu: Osu,
     psql: Database,
-    ordr: Option<Arc<Ordr>>,
+    ordr: Arc<Ordr>,
     #[cfg(feature = "server")]
     auth_standby: Arc<bathbot_server::AuthenticationStandby>,
 }

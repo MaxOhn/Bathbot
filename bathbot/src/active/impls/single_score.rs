@@ -20,7 +20,6 @@ use bathbot_util::{
 };
 use eyre::{Report, Result};
 use rosu_pp::model::beatmap::{AdjustedBeatmapAttributes, BeatmapAttributes};
-use rosu_render::{ClientError as OrdrError, client::error::ApiError as OrdrApiError};
 use rosu_v2::{
     error::OsuError,
     model::{GameMode, Grade},
@@ -46,7 +45,10 @@ use crate::{
         pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
     commands::{
-        osu::{OngoingRender, ProgressResponse, RENDERER_NAME, RenderStatus, RenderStatusInner},
+        osu::{
+            OngoingRender, ProgressResponse, RENDERER_NAME, RenderStatus, RenderStatusInner,
+            ordr_error_content,
+        },
         utility::{ScoreEmbedData, ScoreEmbedDataWrap},
     },
     core::{Context, commands::OwnedCommandOrigin},
@@ -405,26 +407,9 @@ impl SingleScorePagination {
         let render = match render_fut.await {
             Ok(render) => render,
             Err(err) => {
-                let content = match err {
-                    OrdrError::Response {
-                        error:
-                            OrdrApiError {
-                                code: Some(code),
-                                ref message,
-                                reason,
-                            },
-                        ..
-                    } => {
-                        if let Some(ref reason) = reason {
-                            format!(
-                                "Error code {int} from o!rdr: {message}\nReason: {reason}",
-                                int = code.to_u8()
-                            )
-                        } else {
-                            format!("Error code {int} from o!rdr: {message}", int = code.to_u8())
-                        }
-                    }
-                    err => {
+                let content = match ordr_error_content(&err) {
+                    Some(content) => content,
+                    None => {
                         error!(?err, "Failed to commission render");
 
                         ORDR_ISSUE.to_owned()

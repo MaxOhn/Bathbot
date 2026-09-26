@@ -38,6 +38,34 @@ use crate::{
 
 pub const RENDERER_NAME: &str = "Bathbot";
 
+/// User-facing content of an o!rdr API error carrying an error code.
+///
+/// Returns `None` for other errors (e.g. network failures), in which case
+/// the caller should log the error and fall back to a generic message.
+pub fn ordr_error_content(err: &OrdrError) -> Option<String> {
+    let OrdrError::Response {
+        error:
+            OrdrApiError {
+                code: Some(code),
+                message,
+                reason,
+            },
+        ..
+    } = err
+    else {
+        return None;
+    };
+
+    Some(if let Some(reason) = reason {
+        format!(
+            "Error code {} from o!rdr: {message}\nReason: {reason}",
+            code.to_u8()
+        )
+    } else {
+        format!("Error code {} from o!rdr: {message}", code.to_u8())
+    })
+}
+
 #[derive(CommandModel, CreateCommand, SlashCommand)]
 #[command(
     name = "render",
@@ -111,14 +139,6 @@ pub struct RenderSettingsCopy {
 pub struct RenderSettingsDefault;
 
 pub async fn slash_render(mut command: InteractionCommand) -> Result<()> {
-    if !Context::ordr_available() {
-        command
-            .error_callback("Rendering is currently unavailable")
-            .await?;
-
-        return Ok(());
-    };
-
     match Render::from_interaction(command.input_data())? {
         Render::Replay(args) => render_replay(command, args).await,
         Render::Score(args) => render_score(command, args).await,
@@ -189,29 +209,13 @@ async fn render_replay(command: InteractionCommand, replay: RenderReplay) -> Res
     let render = match render_fut.await {
         Ok(render) => render,
         Err(err) => {
-            return match err {
-                OrdrError::Response {
-                    error:
-                        OrdrApiError {
-                            code: Some(code),
-                            ref message,
-                            reason,
-                        },
-                    ..
-                } => {
-                    let content = if let Some(ref reason) = reason {
-                        format!(
-                            "Error code {int} from o!rdr: {message}\nReason: {reason}",
-                            int = code.to_u8()
-                        )
-                    } else {
-                        format!("Error code {int} from o!rdr: {message}", int = code.to_u8())
-                    };
+            return match ordr_error_content(&err) {
+                Some(content) => {
                     command.error(content).await?;
 
                     Ok(())
                 }
-                _ => {
+                None => {
                     let _ = command.error(ORDR_ISSUE).await;
 
                     Err(Report::new(err).wrap_err("Failed to commission render"))
@@ -380,32 +384,18 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
 
     let render = match render_fut.await {
         Ok(render) => render,
-        Err(OrdrError::Response {
-            error:
-                OrdrApiError {
-                    code: Some(code),
-                    ref message,
-                    reason,
-                },
-            ..
-        }) => {
-            let content = if let Some(ref reason) = reason {
-                format!(
-                    "Error code {int} from o!rdr: {message}\nReason: {reason}",
-                    int = code.to_u8()
-                )
-            } else {
-                format!("Error code {int} from o!rdr: {message}", int = code.to_u8())
-            };
-            command.error(content).await?;
+        Err(err) => match ordr_error_content(&err) {
+            Some(content) => {
+                command.error(content).await?;
 
-            return Ok(());
-        }
-        Err(err) => {
-            let _ = command.error(ORDR_ISSUE).await;
+                return Ok(());
+            }
+            None => {
+                let _ = command.error(ORDR_ISSUE).await;
 
-            return Err(Report::new(err).wrap_err("Failed to commission render"));
-        }
+                return Err(Report::new(err).wrap_err("Failed to commission render"));
+            }
+        },
     };
 
     let ongoing_fut = OngoingRender::new(
@@ -622,7 +612,7 @@ impl OngoingRender {
         const TIMEOUT_DURATION: Duration = Duration::from_secs(60 * 60 * 24);
         const INTERVAL: Duration = Duration::from_secs(5);
 
-        let mut last_update = Instant::now();
+        let mut last_update = Instant::now() - INTERVAL;
 
         loop {
             tokio::select! {

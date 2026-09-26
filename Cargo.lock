@@ -2935,14 +2935,14 @@ dependencies = [
 
 [[package]]
 name = "rosu-render"
-version = "0.5.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1346f6d7d57195f2b0a02682f76d15bb1788203caeb2081ef2db4efceb73cb00"
+checksum = "f387f08481416b5208a4872b619b6e4f3f8d1f6c4879c4e75c239b94168ad07e"
 dependencies = [
  "bytes",
  "fastrand",
  "form_urlencoded",
- "futures",
+ "futures-util",
  "http",
  "http-body-util",
  "hyper",
@@ -2952,7 +2952,6 @@ dependencies = [
  "leaky-bucket",
  "pin-project",
  "rustls",
- "ryu",
  "serde",
  "serde_json",
  "serde_urlencoded",
@@ -2962,6 +2961,7 @@ dependencies = [
  "tokio-websockets",
  "tracing",
  "url",
+ "zmij",
 ]
 
 [[package]]
@@ -4558,7 +4558,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

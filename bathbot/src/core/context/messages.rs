@@ -118,11 +118,7 @@ impl Context {
                 continue;
             };
 
-            let Some(ordr) = Context::try_ordr() else {
-                continue;
-            };
-
-            let render_opt = ordr
+            let render_opt = Context::ordr()
                 .client()
                 .render_list()
                 .link(video_url)

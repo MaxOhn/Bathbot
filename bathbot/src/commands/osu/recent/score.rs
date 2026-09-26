@@ -592,8 +592,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
     with_miss_analyzer &= mode == GameMode::Osu;
     with_render &= settings.buttons.render
         && mode == GameMode::Osu
-        && orig.has_permission_to(Permissions::SEND_MESSAGES)
-        && Context::ordr_available();
+        && orig.has_permission_to(Permissions::SEND_MESSAGES);
 
     #[cfg(feature = "twitch")]
     let twitch_fut = async {

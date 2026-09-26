@@ -3,6 +3,7 @@ use std::{borrow::Borrow, sync::Arc, time::Duration};
 use bathbot_util::IntHasher;
 use eyre::{Report, Result};
 use flexmap::tokio::TokioRwLockMap;
+use futures::stream::StreamExt;
 use rosu_render::{
     OrdrClient, OrdrWebsocket,
     model::{RenderDone, RenderFailed, RenderProgress, Verification},
@@ -23,7 +24,8 @@ const WATCHDOG_TIMEOUT: Duration = Duration::from_secs(2 * 60);
 const RECONNECT_DELAY: Duration = Duration::from_secs(1);
 /// Upper bound for the reconnection delay
 const MAX_RECONNECT_DELAY: Duration = Duration::from_secs(60);
-/// A connection that stayed up at least this long resets the reconnection backoff
+/// A connection that stayed up at least this long resets the reconnection
+/// backoff
 const STABLE_CONNECTION_DURATION: Duration = Duration::from_secs(60);
 
 pub struct Ordr {
@@ -65,7 +67,7 @@ enum OrdrLoopExit {
 }
 
 impl Ordr {
-    pub async fn new(
+    pub fn new(
         #[cfg(not(debug_assertions))] verification_key: impl Into<Box<str>>,
     ) -> Result<Self> {
         let senders = Arc::new(SenderMap::with_shard_amount_and_hasher(8, IntHasher));
@@ -84,6 +86,7 @@ impl Ordr {
         let (shutdown_tx, shutdown_rx) = watch::channel(());
 
         tokio::spawn(supervise_ordr_events(Arc::clone(&senders), shutdown_rx));
+        tokio::spawn(poll_finished_renders(client.clone(), Arc::clone(&senders)));
 
         Ok(Self {
             client,
@@ -128,6 +131,74 @@ impl Ordr {
         debug!(render_id, "Unsubscribing");
 
         self.senders.own(RenderId(render_id)).await.remove();
+    }
+}
+
+/// Periodically re-query the renders we are subscribed to.
+///
+/// `render_done` and `render_failed` events fire once: if the websocket
+/// connection was down when o!rdr emitted one (for example right before the
+/// watchdog restarts it), the event is lost and the render would otherwise
+/// hang until the 24 hour timeout. Since finished renders stay in the render
+/// list, we can catch up from there.
+async fn poll_finished_renders(client: OrdrClient, senders: Arc<SenderMap>) {
+    const POLL_INTERVAL: Duration = Duration::from_secs(5 * 60);
+
+    loop {
+        sleep(POLL_INTERVAL).await;
+
+        let render_ids = {
+            let mut ids = Vec::new();
+            let mut iter = senders.iter();
+
+            while let Some(guard) = iter.next().await {
+                ids.push(*guard.key());
+            }
+
+            ids
+        };
+
+        for render_id in render_ids {
+            let Ok(list) = client.render_list().render_id(render_id.0).await else {
+                continue;
+            };
+
+            let Some(render) = list.renders.into_iter().next() else {
+                continue;
+            };
+
+            if render.video_url.is_empty() && !render.removed {
+                continue;
+            }
+
+            let guard = senders.read(&render_id).await;
+
+            if let Some(subscribers) = guard.get() {
+                let render_id = render_id.0;
+
+                if render.video_url.is_empty() {
+                    let _ = subscribers
+                        .failed
+                        .send(RenderFailed {
+                            render_id,
+                            error_code: None,
+                            error_message: "the render was removed from o!rdr".into(),
+                        })
+                        .await;
+                } else {
+                    let _ = subscribers
+                        .done
+                        .send(RenderDone {
+                            render_id,
+                            video_url: render.video_url,
+                        })
+                        .await;
+                }
+            }
+
+            // Prevent the real event from firing twice, if it arrives now.
+            senders.own(render_id).await.remove();
+        }
     }
 }
 

@@ -5,7 +5,6 @@ use bathbot_util::{
     constants::{GENERAL_ISSUE, ORDR_ISSUE, OSU_API_ISSUE},
 };
 use eyre::{ContextCompat, Report, Result, WrapErr};
-use rosu_render::{ClientError as OrdrError, client::error::ApiError as OrdrApiError};
 use rosu_v2::error::OsuError;
 use twilight_model::{
     channel::message::{
@@ -19,6 +18,7 @@ use crate::{
     active::{BuildPage, ComponentResult, IActiveMessage, response::ActiveResponse},
     commands::osu::{
         OngoingRender, ProgressResponse, RENDERER_NAME, RenderStatus, RenderStatusInner,
+        ordr_error_content,
     },
     core::Context,
     manager::ReplayError,
@@ -190,27 +190,9 @@ impl CachedRender {
         let render = match render_fut.await {
             Ok(render) => render,
             Err(err) => {
-                let (content, err) = match err {
-                    OrdrError::Response {
-                        error:
-                            OrdrApiError {
-                                code: Some(code),
-                                ref message,
-                                reason,
-                            },
-                        ..
-                    } => (
-                        if let Some(ref reason) = reason {
-                            format!(
-                                "Error code {int} from o!rdr: {message}\nReason: {reason}",
-                                int = code.to_u8()
-                            )
-                        } else {
-                            format!("Error code {int} from o!rdr: {message}", int = code.to_u8())
-                        },
-                        None,
-                    ),
-                    err => (ORDR_ISSUE.to_owned(), Some(err)),
+                let (content, err) = match ordr_error_content(&err) {
+                    Some(content) => (content, None),
+                    None => (ORDR_ISSUE.to_owned(), Some(err)),
                 };
 
                 let embed = EmbedBuilder::new().color_red().description(content);
