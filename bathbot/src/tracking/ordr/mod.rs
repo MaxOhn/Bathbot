@@ -10,7 +10,7 @@ use rosu_render::{
     websocket::event::RawEvent,
 };
 use tokio::{
-    sync::{mpsc, watch},
+    sync::{mpsc, mpsc::error::TrySendError, watch},
     time::{Instant, sleep, sleep_until},
 };
 
@@ -160,10 +160,17 @@ async fn poll_finished_renders(client: OrdrClient, senders: Arc<SenderMap>) {
 
         for render_id in render_ids {
             let Ok(list) = client.render_list().render_id(render_id.0).await else {
+                warn!(render_id = render_id.0, "Failed to query o!rdr render list",);
+
                 continue;
             };
 
             let Some(render) = list.renders.into_iter().next() else {
+                debug!(
+                    render_id = render_id.0,
+                    "o!rdr render list returned no render",
+                );
+
                 continue;
             };
 
@@ -171,33 +178,48 @@ async fn poll_finished_renders(client: OrdrClient, senders: Arc<SenderMap>) {
                 continue;
             }
 
-            let guard = senders.read(&render_id).await;
+            let failed = render.video_url.is_empty();
 
-            if let Some(subscribers) = guard.get() {
-                let render_id = render_id.0;
+            let (done_sender, failed_sender) = {
+                // Do not hold the guard across any await, otherwise the write
+                // lock below (and any other subscriber of this shard) might
+                // deadlock.
+                let guard = senders.read(&render_id).await;
 
-                if render.video_url.is_empty() {
-                    let _ = subscribers
-                        .failed
+                match guard.get() {
+                    Some(subscribers) => {
+                        let done = subscribers.done.clone();
+                        let failed = subscribers.failed.clone();
+
+                        (Some(done), Some(failed))
+                    }
+                    None => (None, None),
+                }
+            };
+
+            let render_id = render_id.0;
+
+            if failed {
+                if let Some(failed_sender) = failed_sender {
+                    let _ = failed_sender
                         .send(RenderFailed {
                             render_id,
                             error_code: None,
                             error_message: "the render was removed from o!rdr".into(),
                         })
                         .await;
-                } else {
-                    let _ = subscribers
-                        .done
-                        .send(RenderDone {
-                            render_id,
-                            video_url: render.video_url,
-                        })
-                        .await;
                 }
+            } else if let Some(done_sender) = done_sender {
+                let _ = done_sender
+                    .send(RenderDone {
+                        render_id,
+                        video_url: render.video_url,
+                    })
+                    .await;
             }
 
             // Prevent the real event from firing twice, if it arrives now.
-            senders.own(render_id).await.remove();
+            senders.own(RenderId(render_id)).await.remove();
         }
     }
 }
@@ -293,53 +315,81 @@ async fn handle_ordr_events(
                 match event {
                     RawEvent::RenderProgress(progress) => {
                         let render_id = progress.render_id;
-                        let guard = senders.read(&render_id).await;
+                        let sender = {
+                            let guard = senders.read(&render_id).await;
 
-                        if let Some(senders) = guard.get() {
-                            match progress.deserialize() {
-                                Ok(progress) => {
-                                    let _ = senders.progress.send(progress).await;
+                            guard.get().map(|senders| senders.progress.clone())
+                        };
+
+                        let Some(sender) = sender else {
+                            trace!(render_id, "No subscribers for o!rdr render progress",);
+
+                            continue;
+                        };
+
+                        match progress.deserialize() {
+                            Ok(progress) => {
+                                // Progress updates are cosmetic, drop them
+                                // instead of blocking on slow subscribers
+                                if let Err(TrySendError::Closed(_)) = sender.try_send(progress) {
+                                    warn!(render_id, "Progress receiver was closed",);
                                 }
-                                Err(err) => warn!(
-                                    err = ?Report::new(err),
-                                    ?progress,
-                                    "Failed to deserialize o!rdr event"
-                                ),
                             }
+                            Err(err) => warn!(
+                                err = ?Report::new(err),
+                                ?progress,
+                                "Failed to deserialize o!rdr event"
+                            ),
                         }
                     }
                     RawEvent::RenderDone(done) => {
                         let render_id = done.render_id;
-                        let guard = senders.read(&render_id).await;
+                        let sender = {
+                            let guard = senders.read(&render_id).await;
 
-                        if let Some(senders) = guard.get() {
-                            match done.deserialize() {
-                                Ok(done) => {
-                                    let _ = senders.done.send(done).await;
-                                }
-                                Err(err) => warn!(
-                                    err = ?Report::new(err),
-                                    ?done,
-                                    "Failed to deserialize o!rdr event"
-                                ),
+                            guard.get().map(|senders| senders.done.clone())
+                        };
+
+                        let Some(sender) = sender else {
+                            trace!(render_id, "No subscribers for o!rdr render done",);
+
+                            continue;
+                        };
+
+                        match done.deserialize() {
+                            Ok(done) => {
+                                let _ = sender.send(done).await;
                             }
+                            Err(err) => warn!(
+                                err = ?Report::new(err),
+                                ?done,
+                                "Failed to deserialize o!rdr event"
+                            ),
                         }
                     }
                     RawEvent::RenderFailed(failed) => {
                         let render_id = failed.render_id;
-                        let guard = senders.read(&render_id).await;
+                        let sender = {
+                            let guard = senders.read(&render_id).await;
 
-                        if let Some(senders) = guard.get() {
-                            match failed.deserialize() {
-                                Ok(failed) => {
-                                    let _ = senders.failed.send(failed).await;
-                                }
-                                Err(err) => warn!(
-                                    err = ?Report::new(err),
-                                    ?failed,
-                                    "Failed to deserialize o!rdr event"
-                                ),
+                            guard.get().map(|senders| senders.failed.clone())
+                        };
+
+                        let Some(sender) = sender else {
+                            trace!(render_id, "No subscribers for o!rdr render failed",);
+
+                            continue;
+                        };
+
+                        match failed.deserialize() {
+                            Ok(failed) => {
+                                let _ = sender.send(failed).await;
                             }
+                            Err(err) => warn!(
+                                err = ?Report::new(err),
+                                ?failed,
+                                "Failed to deserialize o!rdr event"
+                            ),
                         }
                     }
                     _ => {}
