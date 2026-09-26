@@ -4,7 +4,13 @@ use twilight_model::channel::Message;
 use crate::{Context, util::ChannelExt};
 
 pub async fn stop(msg: &Message) -> Result<()> {
-    match Context::bg_games().read(&msg.channel_id).await.get() {
+    let game = Context::bg_games()
+        .read(&msg.channel_id)
+        .await
+        .get()
+        .cloned();
+
+    match game {
         Some(game) => match game.stop() {
             Ok(_) => {}
             Err(err) => {

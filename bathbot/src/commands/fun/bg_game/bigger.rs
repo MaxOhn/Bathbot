@@ -29,7 +29,13 @@ pub async fn bigger(msg: &Message, permissions: Option<Permissions>) -> Result<(
 
     let _ = Context::http().create_typing_trigger(msg.channel_id).await;
 
-    match Context::bg_games().read(&msg.channel_id).await.get() {
+    let game = Context::bg_games()
+        .read(&msg.channel_id)
+        .await
+        .get()
+        .cloned();
+
+    match game {
         Some(game) => match game.sub_image().await {
             Ok(bytes) => {
                 let builder = MessageBuilder::new().attachment("bg_img.png", bytes);

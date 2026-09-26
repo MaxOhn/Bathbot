@@ -22,7 +22,13 @@ pub async fn skip(msg: &Message) -> Result<()> {
 
     let _ = Context::http().create_typing_trigger(msg.channel_id).await;
 
-    match Context::bg_games().read(&msg.channel_id).await.get() {
+    let game = Context::bg_games()
+        .read(&msg.channel_id)
+        .await
+        .get()
+        .cloned();
+
+    match game {
         Some(game) => match game.restart() {
             Ok(_) => {}
             Err(err) => {

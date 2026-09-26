@@ -91,15 +91,21 @@ impl Context {
     /// Notify all active bg games that they'll be aborted due to a bot restart
     #[cold]
     async fn stop_all_games() -> usize {
-        let mut active_games = Vec::new();
-        let mut stream = Context::bg_games().iter();
+        // Drop the iterator (and with it the last held shard lock) before
+        // doing any await below
+        let active_games = {
+            let mut stream = Context::bg_games().iter();
+            let mut games = Vec::new();
 
-        while let Some(guard) = stream.next().await {
-            let key = *guard.key();
-            let value = guard.value().to_owned();
+            while let Some(guard) = stream.next().await {
+                let key = *guard.key();
+                let value = guard.value().to_owned();
 
-            active_games.push((key, value));
-        }
+                games.push((key, value));
+            }
+
+            games
+        };
 
         if active_games.is_empty() {
             return 0;

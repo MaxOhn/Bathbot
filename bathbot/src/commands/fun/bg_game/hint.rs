@@ -16,7 +16,13 @@ pub async fn hint(msg: &Message, permissions: Option<Permissions>) -> Result<()>
         return Ok(());
     }
 
-    match Context::bg_games().read(&msg.channel_id).await.get() {
+    let game = Context::bg_games()
+        .read(&msg.channel_id)
+        .await
+        .get()
+        .cloned();
+
+    match game {
         Some(game) => match game.hint().await {
             Ok(hint) => {
                 let builder = MessageBuilder::new().content(hint);
