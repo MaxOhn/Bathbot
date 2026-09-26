@@ -24,6 +24,27 @@ use tokio::{
     task::JoinSet,
 };
 
+/// Awaits the first graceful-shutdown signal (Ctrl+C/SIGINT, or SIGTERM).
+///
+/// `ctrl_c()` only covers SIGINT, but systemd sends SIGTERM on `restart`/
+/// `stop`, which would otherwise kill the process without running the
+/// graceful shutdown path, so on unix we also watch for SIGTERM.
+async fn shutdown_signal() -> std::io::Result<()> {
+    let ctrl_c = signal::ctrl_c();
+
+    #[cfg(unix)]
+    let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+
+    #[cfg(unix)]
+    return tokio::select! {
+        _ = ctrl_c => Ok(()),
+        _ = terminate.recv() => Ok(()),
+    };
+
+    #[cfg(not(unix))]
+    ctrl_c.await
+}
+
 use crate::{
     commands::owner::RESHARD_TX,
     core::{BotConfig, Context, commands::interaction::InteractionCommands, event_loop, logging},
@@ -109,11 +130,13 @@ async fn async_main() -> Result<()> {
 
     let mut runners = JoinSet::new();
 
+    let shutdown = shutdown_signal();
+
     tokio::select! {
         _ = event_loop(&mut runners, &mut shards, reshard_rx) => error!("Event loop ended"),
-        res = signal::ctrl_c() => match res {
-            Ok(_) => info!("Received Ctrl+C"),
-            Err(err) => error!(?err, "Failed to await Ctrl+C"),
+        res = shutdown => match res {
+            Ok(()) => info!("Received shutdown signal"),
+            Err(err) => error!(?err, "Failed to await shutdown signal"),
         }
     }
 
@@ -124,9 +147,9 @@ async fn async_main() -> Result<()> {
 
     tokio::select! {
         _ = Context::shutdown(runners, shards) => info!("Shutting down"),
-        res = signal::ctrl_c() => match res {
-            Ok(_) => info!("Forcing shutdown"),
-            Err(err) => error!(?err, "Failed to await second Ctrl+C"),
+        res = shutdown_signal() => match res {
+            Ok(()) => info!("Forcing shutdown"),
+            Err(err) => error!(?err, "Failed to await second shutdown signal"),
         }
     }
 
