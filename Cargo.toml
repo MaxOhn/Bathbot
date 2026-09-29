@@ -74,6 +74,7 @@ twilight-interactions = { git = "https://github.com/MaxOhn/twilight-interactions
 twilight-model = { version = "0.16", default-features = false }
 twilight-standby = { version = "0.16", default-features = false }
 url = { version = "2.5.8" }
+axum = { version = "0.8" }
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3

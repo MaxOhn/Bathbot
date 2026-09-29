@@ -17,14 +17,13 @@ use crate::{Client, ClientError, Site};
 
 #[cfg(feature = "twitch")]
 impl Client {
-    #[cfg(feature = "twitch")]
     pub(crate) async fn get_twitch_token(
         client: &crate::client::InnerClient,
+        url: &str,
         client_id: &str,
         token: &str,
     ) -> Result<bathbot_model::TwitchData> {
         use bathbot_model::TwitchData;
-        use bathbot_util::constants::TWITCH_OAUTH;
         use hyper::{
             Request,
             header::{CONTENT_LENGTH, CONTENT_TYPE, USER_AGENT},
@@ -42,7 +41,7 @@ impl Client {
         let content_type = form.content_type();
         let content = form.build();
 
-        let req = Request::post(TWITCH_OAUTH)
+        let req = Request::post(url)
             .header(USER_AGENT, MY_USER_AGENT)
             .header("Client-ID", client_id.clone())
             .header(CONTENT_TYPE, content_type)
@@ -51,7 +50,7 @@ impl Client {
             .wrap_err("Failed to build POST request")?;
 
         let response = client.request(req).await?;
-        let bytes = Self::error_for_status(response, TWITCH_OAUTH).await?;
+        let bytes = Self::error_for_status(response, url).await?;
 
         let oauth_token = serde_json::from_slice(&bytes).wrap_err_with(|| {
             let body = String::from_utf8_lossy(&bytes);
