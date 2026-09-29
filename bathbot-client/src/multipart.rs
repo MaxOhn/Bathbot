@@ -54,14 +54,7 @@ impl Multipart {
         K: AsRef<[u8]>,
         I: Integer,
     {
-        self.write_field_headers(key.as_ref());
-        self.bytes.extend_from_slice(buf.format(value).as_bytes());
-
-        self.bytes.extend_from_slice(Self::NEWLINE);
-        self.bytes.extend_from_slice(Self::BOUNDARY_TERMINATOR);
-        self.bytes.extend_from_slice(&self.boundary);
-
-        self
+        self.push_text(key, buf.format(value).as_bytes())
     }
 
     pub fn push_float<K, F>(&mut self, key: K, value: F, buf: &mut FloatBuffer) -> &mut Self
@@ -69,14 +62,7 @@ impl Multipart {
         K: AsRef<[u8]>,
         F: Float,
     {
-        self.write_field_headers(key.as_ref());
-        self.bytes.extend_from_slice(buf.format(value).as_bytes());
-
-        self.bytes.extend_from_slice(Self::NEWLINE);
-        self.bytes.extend_from_slice(Self::BOUNDARY_TERMINATOR);
-        self.bytes.extend_from_slice(&self.boundary);
-
-        self
+        self.push_text(key, buf.format(value).as_bytes())
     }
 
     pub fn content_type(&self) -> Vec<u8> {

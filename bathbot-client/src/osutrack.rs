@@ -63,6 +63,8 @@ impl Client {
 
         trace!("POST request to url {url}");
 
+        self.ratelimit(Site::OsuTrack).await;
+
         let req = Request::post(&url)
             .header(USER_AGENT, MY_USER_AGENT)
             .body(Body::default())

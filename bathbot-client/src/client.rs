@@ -135,8 +135,6 @@ impl Client {
             .body(Body::from(content))
             .wrap_err("Failed to build POST request")?;
 
-        self.ratelimit(site).await;
-
         let (response, start) = self
             .send_request(req, site)
             .await
@@ -174,8 +172,6 @@ impl Client {
         let req = req
             .body(Body::from(json))
             .wrap_err("Failed to build POST json request")?;
-
-        self.ratelimit(site).await;
 
         let (response, start) = self
             .send_request(req, site)

@@ -26,6 +26,7 @@ zmij = { version = "1.0.21", default-features = false }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+url = { workspace = true }
 time = { workspace = true, features = ["parsing"] }
 tokio = { workspace = true, features = ["fs", "io-util", "macros", "parking_lot", "rt-multi-thread", "signal", "sync", "time"] }
 tracing = { workspace = true }

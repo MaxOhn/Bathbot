@@ -91,7 +91,7 @@ pub async fn get_national_snipes(
     sniper: bool,
     since: OffsetDateTime,
 ) -> Result<Vec<SnipeRecent>> {
-    pub const DATETIME_FORMAT: &[FormatItem<'_>] = &[
+    const DATETIME_FORMAT: &[FormatItem<'_>] = &[
         FormatItem::Compound(DATE_FORMAT),
         FormatItem::StringLiteral("T"),
         FormatItem::Compound(TIME_FORMAT),

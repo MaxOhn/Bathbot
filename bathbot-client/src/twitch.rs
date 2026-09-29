@@ -11,6 +11,7 @@ use bathbot_util::constants::{
 use bytes::Bytes;
 use eyre::{Result, WrapErr};
 use tokio::time::interval;
+use url::form_urlencoded::byte_serialize;
 
 use crate::{Client, ClientError, Site};
 
@@ -79,14 +80,22 @@ impl Client {
         let url = url.as_ref();
 
         let mut uri = format!("{url}?");
-        let mut iter = data.into_iter();
+        let mut buf = String::new();
 
-        if let Some((key, value)) = iter.next() {
-            let _ = write!(uri, "{key}={value}");
+        for (i, (key, v)) in data.into_iter().enumerate() {
+            let _ = write!(&mut buf, "{v}");
 
-            for (key, value) in iter {
-                let _ = write!(uri, "&{key}={value}");
+            if i > 0 {
+                uri.push('&');
             }
+
+            let _ = write!(
+                uri,
+                "{key}={}",
+                byte_serialize(buf.as_bytes()).collect::<String>()
+            );
+
+            buf.clear();
         }
 
         self.make_get_request(&uri, Site::Twitch).await
