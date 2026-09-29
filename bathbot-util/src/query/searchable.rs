@@ -53,16 +53,17 @@ impl Searchable<RegularCriteria<'_>> for BeatmapsetExtended {
         if matches && criteria.has_search_terms() {
             let terms = [artist, creator, title];
 
+            // Lowercase each version once instead of once per search term
+            let versions: Vec<_> = self
+                .maps
+                .iter()
+                .flatten()
+                .map(|map| map.version.cow_to_ascii_lowercase())
+                .collect();
+
             matches &= criteria.search_terms().all(|term| {
-                if terms.iter().any(|searchable| searchable.contains(term)) {
-                    true
-                } else if let Some(ref maps) = self.maps {
-                    maps.iter()
-                        .map(|map| map.version.cow_to_ascii_lowercase())
-                        .any(|version| version.contains(term))
-                } else {
-                    false
-                }
+                terms.iter().any(|searchable| searchable.contains(term))
+                    || versions.iter().any(|version| version.contains(term))
             });
         }
 

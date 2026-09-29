@@ -40,7 +40,6 @@ impl TourneyBadges {
             || badge.starts_with("exemplary")
             || badge.starts_with("global")
             || (badge.starts_with("idol") && !badge.starts_with("idol@"))
-            || badge.starts_with("global")
             || badge.starts_with("longstanding")
             || (badge.starts_with("map") && !badge.starts_with("maple"))
             || badge.starts_with("moderation")
