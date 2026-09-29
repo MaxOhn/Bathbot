@@ -1,9 +1,12 @@
-use syn::{Attribute, Error, Ident, Meta, MetaList, Result, Token};
+use syn::{
+    Attribute, Error, Ident, Meta, MetaList, Result, Token, parse::ParseStream,
+    punctuated::Punctuated,
+};
 
 use crate::{
     bucket::Bucket,
     flags::Flags,
-    util::{AsOption, LitOrConst, PunctuatedExt},
+    util::{AsOption, LitOrConst},
 };
 
 pub struct CommandAttrs {
@@ -74,7 +77,13 @@ impl CommandAttrs {
 }
 
 fn parse_all(list: &MetaList) -> Result<Vec<LitOrConst>> {
-    list.parse_args_with(Vec::<LitOrConst>::parse_separated_nonempty::<Token![,]>)
+    let punctuated = list.parse_args_with(parse_lit_or_const)?;
+
+    Ok(punctuated.into_iter().collect())
+}
+
+fn parse_lit_or_const(input: ParseStream) -> Result<Punctuated<LitOrConst, Token![,]>> {
+    Punctuated::parse_separated_nonempty(input)
 }
 
 fn parse_one(list: &MetaList) -> Result<Option<LitOrConst>> {

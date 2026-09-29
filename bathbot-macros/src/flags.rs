@@ -3,9 +3,8 @@ use quote::{ToTokens, quote};
 use syn::{
     Ident, Result, Token,
     parse::{Parse, ParseStream},
+    punctuated::Punctuated,
 };
-
-use crate::util::PunctuatedExt;
 
 #[derive(Default)]
 pub struct Flags {
@@ -14,9 +13,12 @@ pub struct Flags {
 
 impl Parse for Flags {
     fn parse(input: ParseStream) -> Result<Self> {
-        Vec::parse_separated_nonempty::<Token![,]>(input)
-            .map(Vec::into_boxed_slice)
-            .map(|list| Self { list })
+        let list = Punctuated::<Ident, Token![,]>::parse_separated_nonempty(input)?
+            .into_iter()
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+
+        Ok(Self { list })
     }
 }
 

@@ -4,9 +4,8 @@ use syn::{
     parenthesized,
     parse::{Parse, ParseStream},
     parse_quote,
+    punctuated::Punctuated,
 };
-
-use crate::util::PunctuatedExt;
 
 pub struct CommandFun {
     pub name: Ident,
@@ -35,7 +34,9 @@ impl Parse for CommandFun {
         parenthesized!(content in input);
 
         // args
-        let args = Vec::<FnArg>::parse_terminated::<Token![,]>(&content)?;
+        let args = Punctuated::<FnArg, Token![,]>::parse_terminated(&content)?
+            .into_iter()
+            .collect();
         let CommandArgs { cmd } = validate_args(args)?;
 
         // -> ...
@@ -95,9 +96,6 @@ fn validate_return_type(ret: &ReturnType) -> Result<()> {
     if ret == &parse_quote!(-> Result<()>) {
         Ok(())
     } else {
-        Err(Error::new_spanned(
-            ret,
-            "expected return type `eyre::Result<()>`",
-        ))
+        Err(Error::new_spanned(ret, "expected return type `Result<()>`"))
     }
 }

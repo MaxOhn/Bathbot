@@ -2,6 +2,19 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Error, Fields, Result};
 
+const VALID_FIELDS: [&str; 10] = [
+    "author",
+    "color",
+    "description",
+    "fields",
+    "footer",
+    "image",
+    "timestamp",
+    "title",
+    "thumbnail",
+    "url",
+];
+
 pub fn derive(input: DeriveInput) -> Result<TokenStream> {
     let DeriveInput { ident, data, .. } = input;
 
@@ -28,19 +41,10 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
         }
     };
 
-    let mut author = TokenStream::new();
-    let mut color = TokenStream::new();
-    let mut description = TokenStream::new();
-    let mut fields = TokenStream::new();
-    let mut footer = TokenStream::new();
-    let mut image = TokenStream::new();
-    let mut timestamp = TokenStream::new();
-    let mut title = TokenStream::new();
-    let mut thumbnail = TokenStream::new();
-    let mut url = TokenStream::new();
+    let mut calls = TokenStream::new();
 
     for field in named_fields {
-        let ident = match field.ident {
+        let field_ident = match field.ident {
             Some(ident) => ident,
             None => {
                 let message = "Deriving `EmbedData` requires named fields";
@@ -49,26 +53,17 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
             }
         };
 
-        let ident_str = ident.to_string();
+        let ident_str = field_ident.to_string();
 
-        match ident_str.as_str() {
-            "author" => author = quote!(.author(self.author)),
-            "color" => color = quote!(.color(self.color)),
-            "description" => description = quote!(.description(self.description)),
-            "fields" => fields = quote!(.fields(self.fields)),
-            "footer" => footer = quote!(.footer(self.footer)),
-            "image" => image = quote!(.image(self.image)),
-            "timestamp" => timestamp = quote!(.timestamp(self.timestamp)),
-            "title" => title = quote!(.title(self.title)),
-            "thumbnail" => thumbnail = quote!(.thumbnail(self.thumbnail)),
-            "url" => url = quote!(.url(self.url)),
-            _ => {
-                let message = "Invalid field name for `EmbedData`, must be `author`, `color`, \
-                `description`, `fields`, `footer`, `image`, `timestamp`, `title`, `thumbnail`, or \
-                `url`";
+        if VALID_FIELDS.contains(&ident_str.as_str()) {
+            calls.extend(quote!(.#field_ident(self.#field_ident)));
+        } else {
+            let message = format!(
+                "Invalid field name for `EmbedData`, must be one of: {}",
+                VALID_FIELDS.join(", ")
+            );
 
-                return Err(Error::new(ident.span(), message));
-            }
+            return Err(Error::new(field_ident.span(), message));
         }
     }
 
@@ -76,16 +71,7 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
         impl crate::embeds::EmbedData for #ident {
             fn build(self) -> ::bathbot_util::EmbedBuilder {
                 bathbot_util::EmbedBuilder::new()
-                    #author
-                    #color
-                    #description
-                    #fields
-                    #footer
-                    #image
-                    #timestamp
-                    #title
-                    #thumbnail
-                    #url
+                    #calls
             }
         }
     };

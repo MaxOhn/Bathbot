@@ -2,9 +2,10 @@ use proc_macro2::Span;
 use syn::{
     Error, Expr, ExprLit, Lit, LitBool, LitStr, Meta, Result, Token,
     parse::{Parse, ParseStream},
+    punctuated::Punctuated,
 };
 
-use crate::{flags::Flags, util::PunctuatedExt};
+use crate::flags::Flags;
 
 pub struct CommandAttrs {
     pub name: LitStr,
@@ -14,7 +15,7 @@ pub struct CommandAttrs {
 
 impl Parse for CommandAttrs {
     fn parse(input: ParseStream) -> Result<Self> {
-        let metas = Vec::<Meta>::parse_separated_nonempty::<Token![,]>(input)?;
+        let metas = Punctuated::<Meta, Token![,]>::parse_separated_nonempty(input)?;
 
         let mut attr_name = None;
         let mut dm_permission = None;

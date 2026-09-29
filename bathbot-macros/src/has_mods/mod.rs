@@ -1,6 +1,8 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Data, DeriveInput, Error, Fields, GenericArgument, PathArguments, Result, Type};
+use syn::{Data, DeriveInput, Error, Fields, Result};
+
+use crate::util::is_option_string_or_cow;
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream> {
     let DeriveInput {
@@ -31,28 +33,8 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream> {
     };
 
     let valid_mods_field = fields.named.iter().any(|field| {
-        if !matches!(field.ident, Some(ref ident) if ident == "mods") {
-            return false;
-        }
-
-        let Type::Path(ref path) = field.ty else {
-            return false;
-        };
-
-        let segment = match path.path.segments.last() {
-            Some(segment) if segment.ident == "Option" => segment,
-            _ => return false,
-        };
-
-        let PathArguments::AngleBracketed(ref args) = segment.arguments else {
-            return false;
-        };
-
-        let Some(GenericArgument::Type(Type::Path(path))) = args.args.first() else {
-            return false;
-        };
-
-        matches!(path.path.segments.first(), Some(seg) if seg.ident == "String" || seg.ident == "Cow")
+        field.ident.as_ref().is_some_and(|ident| ident == "mods")
+            && is_option_string_or_cow(&field.ty)
     });
 
     if !valid_mods_field {

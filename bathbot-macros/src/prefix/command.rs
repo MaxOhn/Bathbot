@@ -4,10 +4,9 @@ use syn::{
     Attribute, Block, Error, Ident, Result, ReturnType, Token, Type, Visibility, parenthesized,
     parse::{Parse, ParseStream},
     parse_quote,
+    punctuated::Punctuated,
     token::{Mut, Underscore},
 };
-
-use crate::util::PunctuatedExt;
 
 pub struct CommandFun {
     // #[...]
@@ -45,7 +44,9 @@ impl Parse for CommandFun {
             parenthesized!(content in input);
 
             // arguments
-            Vec::parse_terminated::<Token![,]>(&content)?
+            Punctuated::<Argument, Token![,]>::parse_terminated(&content)?
+                .into_iter()
+                .collect()
         };
 
         // -> Result<()>
