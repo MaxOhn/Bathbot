@@ -12,7 +12,7 @@ use bathbot_util::{
 use eyre::{Report, Result, WrapErr};
 use rosu_render::{
     client::error::{ApiError as OrdrApiError, ClientError as OrdrError},
-    model::RenderDone,
+    model::{RenderDone, RenderFailed},
 };
 use rosu_v2::error::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -627,9 +627,13 @@ impl OngoingRender {
         loop {
             tokio::select! {
                 progress = self.receivers.progress.recv() => {
-                    let now = Instant::now();
+                    let Some(progress) = progress else {
+                        self.handle_channels_closed().await;
 
-                    debug!("Got progress: {progress:?}");
+                        return;
+                    };
+
+                    let now = Instant::now();
 
                     if last_update + INTERVAL > now {
                         continue;
@@ -637,9 +641,7 @@ impl OngoingRender {
 
                     last_update = now;
 
-                    let Some(progress) = progress else {
-                        return warn!("progress channel was closed");
-                    };
+                    debug!("Got progress: {progress:?}");
 
                     self.status.set(RenderStatusInner::Rendering(progress.progress));
                     let builder = self.status.as_message();
@@ -657,85 +659,24 @@ impl OngoingRender {
                     }
                 },
                 done = self.receivers.done.recv() => {
-                    let Some(RenderDone { render_id, video_url }) = done else {
-                        return warn!("done channel was closed");
+                    let Some(done) = done else {
+                        self.handle_channels_closed().await;
+
+                        return;
                     };
 
-                    if let Some(score_id) = self.score_id {
-                        let replay_manager = Context::replay();
-                        let store_fut = replay_manager.store_video_url(score_id, video_url.as_ref());
-
-                        if let Err(err) = store_fut.await {
-                            warn!(?err, score_id, video_url, "Failed to store video url");
-                        } else {
-                            debug!(score_id, video_url, "Stored render video url");
-                        }
-                    } else {
-                        debug!("Missing score id, skip storing video url");
-                    }
-
-                    let video_url_with_user = format!("{video_url} <@{}>", self.msg_owner);
-                    let builder = MessageBuilder::new().content(video_url_with_user).embed(None);
-
-                    if let Err(err) = self.orig.reply(builder).await {
-                        warn!(?err, "Failed to reply message");
-                    } else if let Some(ref response) = self.response {
-
-                        if response.delete {
-                            if let Err(err) = response.get().delete().await {
-                                warn!(?err, "Failed to delete response");
-                            }
-                        } else {
-                            self.status.set(RenderStatusInner::Done);
-                            let builder = self.status.as_message();
-                            let perms = response.permissions;
-
-                            if let Some(update_fut) = response.get().update(builder, perms) {
-                                if let Err(err) = update_fut.await {
-                                    warn!(?err, "Failed to update message");
-                                }
-                            } else {
-                                warn!("Lacking permissions to update message");
-                            }
-                        }
-                    }
-
-                    Context::ordr().unsubscribe_render_id(render_id).await;
+                    self.handle_done(done).await;
 
                     return;
                 },
                 failed = self.receivers.failed.recv() => {
                     let Some(failed) = failed else {
-                        return warn!("failed channel was closed");
+                        self.handle_channels_closed().await;
+
+                        return;
                     };
 
-                    warn!(?failed, "Received error from o!rdr");
-
-                    if let Err(err) = self.orig.reply_error(failed.error_message).await {
-                        warn!(?err, "Failed to update message");
-                    } else if let Some(ref response) = self.response {
-                        if response.delete {
-                            if let Err(err) = response.get().delete().await {
-                                warn!(?err, "Failed to delete response");
-                            }
-                        } else {
-                            let embed = EmbedBuilder::new()
-                                .color_red()
-                                .description("Render failed");
-                            let builder = MessageBuilder::new().embed(embed);
-                            let perms = response.permissions;
-
-                            if let Some(update_fut) = response.get().update(builder, perms) {
-                                if let Err(err) = update_fut.await {
-                                    warn!(?err, "Failed to update message");
-                                }
-                            } else {
-                                warn!("Lacking permissions to update message");
-                            }
-                        }
-                    }
-
-                    Context::ordr().unsubscribe_render_id(failed.render_id).await;
+                    self.handle_failed(failed).await;
 
                     return;
                 },
@@ -746,14 +687,11 @@ impl OngoingRender {
                     if let Err(err) = self.orig.reply_error(content).await {
                         warn!(?err, "Failed to update message");
                     } else if let Some(ref response) = self.response {
-                        if response.delete {
-                            if let Err(err) = response.get().delete().await {
-                                warn!(?err, "Failed to delete response");
-                            }
-                        } else {
+                        if !response.delete {
                             let embed = EmbedBuilder::new()
                                 .color_red()
                                 .description("Render failed");
+
                             let builder = MessageBuilder::new().embed(embed);
                             let perms = response.permissions;
 
@@ -764,6 +702,8 @@ impl OngoingRender {
                             } else {
                                 warn!("Lacking permissions to update message");
                             }
+                        } else if let Err(err) = response.get().delete().await {
+                            warn!(?err, "Failed to delete response");
                         }
                     }
 
@@ -773,6 +713,104 @@ impl OngoingRender {
                 },
             }
         }
+    }
+
+    /// A channel closed: the terminal event was delivered right before the
+    /// subscription was removed, so it may still be queued in a sibling
+    /// channel. Drain it before giving up.
+    async fn handle_channels_closed(mut self) {
+        if let Ok(done) = self.receivers.done.try_recv() {
+            self.handle_done(done).await;
+
+            return;
+        }
+
+        if let Ok(failed) = self.receivers.failed.try_recv() {
+            self.handle_failed(failed).await;
+
+            return;
+        }
+
+        warn!("o!rdr render channels were closed without an event");
+    }
+
+    async fn handle_done(mut self, done: RenderDone) {
+        let RenderDone {
+            render_id,
+            video_url,
+        } = done;
+
+        if let Some(score_id) = self.score_id {
+            let replay_manager = Context::replay();
+            let store_fut = replay_manager.store_video_url(score_id, video_url.as_ref());
+
+            if let Err(err) = store_fut.await {
+                warn!(?err, score_id, video_url, "Failed to store video url");
+            } else {
+                debug!(score_id, video_url, "Stored render video url");
+            }
+        } else {
+            debug!("Missing score id, skip storing video url");
+        }
+
+        let video_url_with_user = format!("{video_url} <@{}>", self.msg_owner);
+        let builder = MessageBuilder::new()
+            .content(video_url_with_user)
+            .embed(None);
+
+        if let Err(err) = self.orig.reply(builder).await {
+            warn!(?err, "Failed to reply message");
+        } else if let Some(ref response) = self.response {
+            if response.delete {
+                if let Err(err) = response.get().delete().await {
+                    warn!(?err, "Failed to delete response");
+                }
+            } else {
+                self.status.set(RenderStatusInner::Done);
+                let builder = self.status.as_message();
+                let perms = response.permissions;
+
+                if let Some(update_fut) = response.get().update(builder, perms) {
+                    if let Err(err) = update_fut.await {
+                        warn!(?err, "Failed to update message");
+                    }
+                } else {
+                    warn!("Lacking permissions to update message");
+                }
+            }
+        }
+
+        Context::ordr().unsubscribe_render_id(render_id).await;
+    }
+
+    async fn handle_failed(self, failed: RenderFailed) {
+        warn!(?failed, "Received error from o!rdr");
+
+        if let Err(err) = self.orig.reply_error(failed.error_message).await {
+            warn!(?err, "Failed to update message");
+        } else if let Some(ref response) = self.response {
+            if response.delete {
+                if let Err(err) = response.get().delete().await {
+                    warn!(?err, "Failed to delete response");
+                }
+            } else {
+                let embed = EmbedBuilder::new().color_red().description("Render failed");
+                let builder = MessageBuilder::new().embed(embed);
+                let perms = response.permissions;
+
+                if let Some(update_fut) = response.get().update(builder, perms) {
+                    if let Err(err) = update_fut.await {
+                        warn!(?err, "Failed to update message");
+                    }
+                } else {
+                    warn!("Lacking permissions to update message");
+                }
+            }
+        }
+
+        Context::ordr()
+            .unsubscribe_render_id(failed.render_id)
+            .await;
     }
 }
 

@@ -2946,9 +2946,9 @@ dependencies = [
 
 [[package]]
 name = "rosu-render"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f387f08481416b5208a4872b619b6e4f3f8d1f6c4879c4e75c239b94168ad07e"
+checksum = "16c75de2358e75e975a7af32bbbba59e677c8d32b5bda1ef1c23104aec458ec5"
 dependencies = [
  "bytes",
  "fastrand",

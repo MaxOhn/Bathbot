@@ -6,6 +6,7 @@ use flexmap::tokio::TokioRwLockMap;
 use futures::stream::StreamExt;
 use rosu_render::{
     OrdrClient, OrdrWebsocket,
+    client::error::ErrorCode,
     model::{RenderDone, RenderFailed, RenderProgress, Verification},
     websocket::event::RawEvent,
 };
@@ -27,6 +28,8 @@ const MAX_RECONNECT_DELAY: Duration = Duration::from_secs(60);
 /// A connection that stayed up at least this long resets the reconnection
 /// backoff
 const STABLE_CONNECTION_DURATION: Duration = Duration::from_secs(60);
+/// How long to wait for the server's `bot_auth` reply
+const AUTH_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub struct Ordr {
     pub client: OrdrClient,
@@ -72,20 +75,34 @@ impl Ordr {
     ) -> Result<Self> {
         let senders = Arc::new(SenderMap::with_shard_amount_and_hasher(8, IntHasher));
 
+        #[cfg(not(debug_assertions))]
+        let verification_key: Box<str> = verification_key.into();
+
         #[cfg(debug_assertions)]
         let verification = Verification::DevModeSuccess;
 
         #[cfg(not(debug_assertions))]
-        let verification = Verification::Key(verification_key.into());
+        let verification = Verification::Key(verification_key.clone());
 
         let client = OrdrClient::builder()
             .render_ratelimit(5_000, 1, 2) // Two requests per 10 seconds
             .verification(verification)
             .build();
 
+        // The dev mode renders are public, no key to authenticate with
+        #[cfg(debug_assertions)]
+        let auth_key: Option<Box<str>> = None;
+
+        #[cfg(not(debug_assertions))]
+        let auth_key = Some(verification_key);
+
         let (shutdown_tx, shutdown_rx) = watch::channel(());
 
-        tokio::spawn(supervise_ordr_events(Arc::clone(&senders), shutdown_rx));
+        tokio::spawn(supervise_ordr_events(
+            Arc::clone(&senders),
+            auth_key,
+            shutdown_rx,
+        ));
         tokio::spawn(poll_finished_renders(client.clone(), Arc::clone(&senders)));
 
         Ok(Self {
@@ -134,6 +151,17 @@ impl Ordr {
     }
 }
 
+/// Whether a polled render has reached a terminal state, and if so whether it
+/// failed. o!rdr reports `videoUrl: "None"` for renders that have not
+/// finished yet (queued, rendering, uploading, or failed); a finished render
+/// carries a real URL. The field is never empty.
+fn render_terminal(removed: bool, error_code: u8, video_url: &str) -> (bool, bool) {
+    let finished = removed || error_code != 0 || video_url != "None";
+    let failed = removed || error_code != 0;
+
+    (finished, failed)
+}
+
 /// Periodically re-query the renders we are subscribed to.
 ///
 /// `render_done` and `render_failed` events fire once: if the websocket
@@ -174,11 +202,12 @@ async fn poll_finished_renders(client: OrdrClient, senders: Arc<SenderMap>) {
                 continue;
             };
 
-            if render.video_url.is_empty() && !render.removed {
+            let (finished, failed) =
+                render_terminal(render.removed, render.error_code, render.video_url.as_ref());
+
+            if !finished {
                 continue;
             }
-
-            let failed = render.video_url.is_empty();
 
             let (done_sender, failed_sender) = {
                 // Do not hold the guard across any await, otherwise the write
@@ -199,11 +228,19 @@ async fn poll_finished_renders(client: OrdrClient, senders: Arc<SenderMap>) {
 
             if failed {
                 if let Some(failed_sender) = failed_sender {
+                    let (error_code, error_message) = if render.removed {
+                        (None, "the render was removed from o!rdr".to_string())
+                    } else {
+                        let code = ErrorCode::from(render.error_code);
+
+                        (Some(code), code.to_string())
+                    };
+
                     let _ = failed_sender
                         .send(RenderFailed {
                             render_id,
-                            error_code: None,
-                            error_message: "the render was removed from o!rdr".into(),
+                            error_code,
+                            error_message: error_message.into(),
                         })
                         .await;
                 }
@@ -225,13 +262,19 @@ async fn poll_finished_renders(client: OrdrClient, senders: Arc<SenderMap>) {
 /// (Re)connects to the o!rdr websocket and restarts [`handle_ordr_events`]
 /// whenever it exits without a shutdown request, be it through a watchdog
 /// timeout, a connection error, or a panic.
-async fn supervise_ordr_events(senders: Arc<SenderMap>, mut shutdown_rx: watch::Receiver<()>) {
+async fn supervise_ordr_events(
+    senders: Arc<SenderMap>,
+    auth_key: Option<Box<str>>,
+    mut shutdown_rx: watch::Receiver<()>,
+) {
     let mut reconnect_delay = RECONNECT_DELAY;
 
     loop {
         let connected_at = Instant::now();
+
         let handle = tokio::spawn(handle_ordr_events(
             Arc::clone(&senders),
+            auth_key.clone(),
             shutdown_rx.clone(),
         ));
 
@@ -281,6 +324,7 @@ async fn supervise_ordr_events(senders: Arc<SenderMap>, mut shutdown_rx: watch::
 
 async fn handle_ordr_events(
     senders: Arc<SenderMap>,
+    auth_key: Option<Box<str>>,
     mut shutdown_rx: watch::Receiver<()>,
 ) -> OrdrLoopExit {
     let mut websocket = tokio::select! {
@@ -296,6 +340,29 @@ async fn handle_ordr_events(
     };
 
     info!("Connected to o!rdr websocket");
+
+    // The renders of the verified bot are private/unlisted, and their
+    // events only flow to the connection authenticated with the key
+    if let Some(key) = auth_key.as_deref() {
+        let timeout = tokio::time::timeout(AUTH_TIMEOUT, websocket.authenticate(key));
+
+        match timeout.await {
+            Ok(Ok(())) => info!("Authenticated o!rdr websocket"),
+            Ok(Err(err)) => {
+                warn!(?err, "o!rdr websocket authentication failed");
+
+                return OrdrLoopExit::ConnectFailed;
+            }
+            Err(_) => {
+                warn!(
+                    timeout = ?AUTH_TIMEOUT,
+                    "o!rdr websocket authentication timed out",
+                );
+
+                return OrdrLoopExit::ConnectFailed;
+            }
+        }
+    }
 
     let mut watchdog = Instant::now() + WATCHDOG_TIMEOUT;
 
@@ -398,5 +465,28 @@ async fn handle_ordr_events(
             }
             Err(err) => warn!(err = ?Report::new(err), "o!rdr websocket error"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::render_terminal;
+
+    #[test]
+    fn poll_terminal_detection() {
+        // In progress: no terminal state, the poll must leave it alone
+        assert_eq!(render_terminal(false, 0, "None"), (false, false));
+
+        // Done: o!rdr swaps the "None" placeholder for the real URL
+        assert_eq!(
+            render_terminal(false, 0, "https://link.issou.best/x"),
+            (true, false)
+        );
+
+        // Failed: o!rdr sets the error code, the URL stays "None"
+        assert_eq!(render_terminal(false, 5, "None"), (true, true));
+
+        // Removed: the render is gone from o!rdr
+        assert_eq!(render_terminal(true, 0, "None"), (true, true));
     }
 }
