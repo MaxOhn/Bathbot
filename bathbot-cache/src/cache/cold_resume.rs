@@ -1,7 +1,7 @@
 use std::{collections::HashMap, convert::Infallible, hash::BuildHasher};
 
 use bathbot_model::twilight::session::{ArchivedSessions, SessionsRkyv};
-use bb8_redis::redis::{AsyncCommands, Cmd, aio::ConnectionLike};
+use bb8_redis::redis::AsyncCommands;
 use eyre::{Result, WrapErr};
 use rkyv::{
     rancor::{BoxedError, Panic, ResultExt},
@@ -46,14 +46,9 @@ impl Cache {
             .wrap_err("Failed to get stored resume data")?;
 
         if bytes.is_empty() {
-            info!("Sessions not found; flushing redis database");
-
-            let mut cmd = Cmd::new();
-            cmd.arg("FLUSHDB");
-
-            conn.req_packed_command(&cmd)
-                .await
-                .wrap_err("Failed to flush redis entries")?;
+            // Keep existing cache entries; guild creates refresh the data that
+            // applies to us, and stale data is better than missing data
+            info!("Sessions not found; keeping existing cache entries");
 
             return Ok(None);
         }
