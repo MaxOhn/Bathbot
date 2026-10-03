@@ -12,6 +12,7 @@ use tokio::{
     task::JoinSet,
 };
 use twilight_gateway::{Event, EventTypeFlags, Shard, StreamExt as _};
+use twilight_model::id::{Id, marker::GuildMarker};
 use twilight_model::user::User;
 
 use self::{interaction::handle_interaction, message::handle_message};
@@ -72,7 +73,9 @@ impl Display for EventKind {
 
 enum EventLocation {
     Private,
-    UncachedGuild,
+    UncachedGuild {
+        guild: Id<GuildMarker>,
+    },
     UncachedChannel {
         guild: CachedArchive<ArchivedCachedGuild>,
     },
@@ -93,12 +96,24 @@ impl EventLocation {
 
         let cache = Context::cache();
 
-        let Ok(Some(guild)) = cache.guild(guild_id).await else {
-            return Self::UncachedGuild;
+        let guild = match cache.guild(guild_id).await {
+            Ok(Some(guild)) => guild,
+            Ok(None) => return Self::UncachedGuild { guild: guild_id },
+            Err(err) => {
+                debug!(?err, "Failed to fetch guild from cache");
+
+                return Self::UncachedGuild { guild: guild_id };
+            }
         };
 
-        let Ok(Some(channel)) = cache.channel(Some(guild_id), orig.channel_id()).await else {
-            return Self::UncachedChannel { guild };
+        let channel = match cache.channel(Some(guild_id), orig.channel_id()).await {
+            Ok(Some(channel)) => channel,
+            Ok(None) => return Self::UncachedChannel { guild },
+            Err(err) => {
+                debug!(?err, "Failed to fetch channel from cache");
+
+                return Self::UncachedChannel { guild };
+            }
         };
 
         Self::Cached { guild, channel }
@@ -110,7 +125,7 @@ impl Display for EventLocation {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             EventLocation::Private => f.write_str("Private"),
-            EventLocation::UncachedGuild => f.write_str("<uncached guild>"),
+            EventLocation::UncachedGuild { guild } => write!(f, "{guild}[uncached guild]"),
             EventLocation::UncachedChannel { guild } => {
                 write!(f, "{}:<uncached channel>", guild.id)
             }
@@ -134,6 +149,7 @@ const EVENT_FLAGS: EventTypeFlags = EventTypeFlags::CHANNEL_CREATE
     .union(EventTypeFlags::MESSAGE_DELETE)
     .union(EventTypeFlags::MESSAGE_DELETE_BULK)
     .union(EventTypeFlags::READY)
+    .union(EventTypeFlags::RESUMED)
     .union(EventTypeFlags::ROLE_CREATE)
     .union(EventTypeFlags::ROLE_DELETE)
     .union(EventTypeFlags::ROLE_UPDATE)
