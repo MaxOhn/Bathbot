@@ -48,7 +48,7 @@ impl ActiveResponse {
 
     pub fn update(self, builder: MessageBuilder<'_>) -> Option<ResponseFuture<Message>> {
         match self.inner {
-            ActiveResponseInner::Message { channel } => (self.msg, channel).update(builder, None),
+            ActiveResponseInner::Message { channel } => (self.msg, channel).update(builder),
             ActiveResponseInner::Interaction { token } => Some(token.update(builder, None)),
         }
     }

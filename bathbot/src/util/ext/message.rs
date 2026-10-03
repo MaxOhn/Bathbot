@@ -14,11 +14,7 @@ use twilight_model::{
 use crate::core::Context;
 
 pub trait MessageExt {
-    fn update(
-        &self,
-        builder: MessageBuilder<'_>,
-        permissions: Option<Permissions>,
-    ) -> Option<ResponseFuture<Message>>;
+    fn update(&self, builder: MessageBuilder<'_>) -> Option<ResponseFuture<Message>>;
 
     fn delete(&self) -> ResponseFuture<EmptyBody>;
 
@@ -30,19 +26,7 @@ pub trait MessageExt {
 }
 
 impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
-    fn update(
-        &self,
-        builder: MessageBuilder<'_>,
-        permissions: Option<Permissions>,
-    ) -> Option<ResponseFuture<Message>> {
-        let can_view_channel =
-            permissions.is_none_or(|permissions| permissions.contains(Permissions::VIEW_CHANNEL));
-
-        // Lacking permission to edit the message
-        if !can_view_channel {
-            return None;
-        }
-
+    fn update(&self, builder: MessageBuilder<'_>) -> Option<ResponseFuture<Message>> {
         let mut req = Context::http().update_message(self.1, self.0);
 
         if let Some(ref content) = builder.content {
@@ -94,12 +78,8 @@ impl MessageExt for (Id<MessageMarker>, Id<ChannelMarker>) {
 }
 
 impl MessageExt for Message {
-    fn update(
-        &self,
-        builder: MessageBuilder<'_>,
-        permissions: Option<Permissions>,
-    ) -> Option<ResponseFuture<Message>> {
-        (self.id, self.channel_id).update(builder, permissions)
+    fn update(&self, builder: MessageBuilder<'_>) -> Option<ResponseFuture<Message>> {
+        (self.id, self.channel_id).update(builder)
     }
 
     fn delete(&self) -> ResponseFuture<EmptyBody> {

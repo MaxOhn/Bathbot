@@ -87,7 +87,7 @@ async fn song(lyrics: &[&str], delay: u64, orig: CommandOrigin<'_>) -> Result<()
             let builder = MessageBuilder::new().content(&content);
 
             response = response
-                .update(builder, None)
+                .update(builder)
                 .wrap_err("lacking permission to update message")?
                 .await?
                 .model()

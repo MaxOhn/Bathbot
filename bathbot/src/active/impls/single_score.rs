@@ -315,7 +315,7 @@ impl SingleScorePagination {
 
         status.set(RenderStatusInner::PreparingReplay);
 
-        if let Some(update_fut) = msg.update(status.as_message(), permissions) {
+        if let Some(update_fut) = msg.update(status.as_message()) {
             let _ = update_fut.await;
         }
 
@@ -333,7 +333,7 @@ impl SingleScorePagination {
                 let embed = EmbedBuilder::new().color_red().description(content);
                 let builder = MessageBuilder::new().embed(embed);
 
-                return match msg.update(builder, permissions) {
+                return match msg.update(builder) {
                     Some(update_fut) => match update_fut.await {
                         Ok(_) => {}
                         Err(err) => error!(?err, "Failed to update message"),
@@ -359,7 +359,7 @@ impl SingleScorePagination {
                 let embed = EmbedBuilder::new().color_red().description(content);
                 let builder = MessageBuilder::new().embed(embed);
 
-                if let Some(update_fut) = msg.update(builder, permissions) {
+                if let Some(update_fut) = msg.update(builder) {
                     let _ = update_fut.await;
                 }
 
@@ -373,7 +373,7 @@ impl SingleScorePagination {
                 let embed = EmbedBuilder::new().color_red().description(GENERAL_ISSUE);
                 let builder = MessageBuilder::new().embed(embed);
 
-                if let Some(update_fut) = msg.update(builder, permissions) {
+                if let Some(update_fut) = msg.update(builder) {
                     let _ = update_fut.await;
                 }
 
@@ -383,7 +383,7 @@ impl SingleScorePagination {
 
         status.set(RenderStatusInner::CommissioningRender);
 
-        let response = match msg.update(status.as_message(), permissions) {
+        let response = match msg.update(status.as_message()) {
             Some(update_fut) => match update_fut.await {
                 Ok(response) => match response.model().await {
                     Ok(msg) => Some(msg),
@@ -435,7 +435,7 @@ impl SingleScorePagination {
                 let embed = EmbedBuilder::new().color_red().description(content);
                 let builder = MessageBuilder::new().embed(embed);
 
-                if let Some(update_fut) = msg.update(builder, permissions) {
+                if let Some(update_fut) = msg.update(builder) {
                     let _ = update_fut.await;
                 }
 
@@ -450,7 +450,7 @@ impl SingleScorePagination {
                 channel: orig.1,
                 permissions,
             },
-            ProgressResponse::new(response, permissions, true),
+            ProgressResponse::new(response, true),
             status,
             Some(score_id),
             owner,

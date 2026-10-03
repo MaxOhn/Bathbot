@@ -209,7 +209,7 @@ impl CachedRender {
         let ongoing_fut = OngoingRender::new(
             render.render_id,
             &*component,
-            ProgressResponse::new(response, component.permissions, self.delete_updates),
+            ProgressResponse::new(response, self.delete_updates),
             status,
             Some(self.score_id),
             owner,

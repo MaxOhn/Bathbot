@@ -142,8 +142,11 @@ impl CommandOrigin<'_> {
     /// Update a response and return the resulting response message.
     pub async fn update(&self, builder: MessageBuilder<'_>) -> Result<Response<Message>> {
         match self {
-            Self::Message { msg, permissions } => msg
-                .update(builder, *permissions)
+            Self::Message {
+                msg,
+                permissions: _,
+            } => msg
+                .update(builder)
                 .wrap_err("lacking permission to update message")?
                 .await
                 .wrap_err("failed to update message"),

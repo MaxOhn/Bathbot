@@ -18,7 +18,6 @@ use rosu_v2::error::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     channel::{Attachment, Message},
-    guild::Permissions,
     id::{
         Id,
         marker::{ChannelMarker, MessageMarker, UserMarker},
@@ -243,7 +242,7 @@ async fn render_replay(command: InteractionCommand, replay: RenderReplay) -> Res
     let ongoing = OngoingRender::new(
         render.render_id,
         &command,
-        ProgressResponse::new(response, command.permissions, false),
+        ProgressResponse::new(response, false),
         status,
         None,
         owner,
@@ -411,7 +410,7 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
     let ongoing_fut = OngoingRender::new(
         render.render_id,
         &command,
-        ProgressResponse::new(response, command.permissions, false),
+        ProgressResponse::new(response, false),
         status,
         Some(score_id),
         owner,
@@ -574,21 +573,15 @@ pub struct OngoingRender {
 pub struct ProgressResponse {
     msg: Id<MessageMarker>,
     channel: Id<ChannelMarker>,
-    permissions: Option<Permissions>,
     /// Whether the response should be deleted afterwards
     delete: bool,
 }
 
 impl ProgressResponse {
-    pub fn new(
-        msg: Option<Message>,
-        permissions: Option<Permissions>,
-        delete: bool,
-    ) -> Option<Self> {
+    pub fn new(msg: Option<Message>, delete: bool) -> Option<Self> {
         msg.map(|msg| Self {
             msg: msg.id,
             channel: msg.channel_id,
-            permissions,
             delete,
         })
     }
@@ -651,9 +644,8 @@ impl OngoingRender {
                     let builder = self.status.as_message();
 
                     if let Some(ref response) = self.response {
-                        let perms = response.permissions;
 
-                        if let Some(update_fut) = response.get().update(builder, perms) {
+                        if let Some(update_fut) = response.get().update(builder, ) {
                             if let Err(err) = update_fut.await {
                                 warn!(?err, "Failed to update message");
                             }
@@ -697,9 +689,8 @@ impl OngoingRender {
                                 .description("Render failed");
 
                             let builder = MessageBuilder::new().embed(embed);
-                            let perms = response.permissions;
 
-                            if let Some(update_fut) = response.get().update(builder, perms) {
+                            if let Some(update_fut) = response.get().update(builder, ) {
                                 if let Err(err) = update_fut.await {
                                     warn!(?err, "Failed to update message");
                                 }
@@ -772,9 +763,8 @@ impl OngoingRender {
             } else {
                 self.status.set(RenderStatusInner::Done);
                 let builder = self.status.as_message();
-                let perms = response.permissions;
 
-                if let Some(update_fut) = response.get().update(builder, perms) {
+                if let Some(update_fut) = response.get().update(builder) {
                     if let Err(err) = update_fut.await {
                         warn!(?err, "Failed to update message");
                     }
@@ -800,9 +790,8 @@ impl OngoingRender {
             } else {
                 let embed = EmbedBuilder::new().color_red().description("Render failed");
                 let builder = MessageBuilder::new().embed(embed);
-                let perms = response.permissions;
 
-                if let Some(update_fut) = response.get().update(builder, perms) {
+                if let Some(update_fut) = response.get().update(builder) {
                     if let Err(err) = update_fut.await {
                         warn!(?err, "Failed to update message");
                     }
