@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\nDELETE FROM \n  osu_user_stats \nWHERE \n  user_id = $1",
+  "query": "\nDELETE FROM\n  osu_user_mode_stats\nWHERE\n  user_id = $1",
   "describe": {
     "columns": [],
     "parameters": {
@@ -10,5 +10,5 @@
     },
     "nullable": []
   },
-  "hash": "8f560c7c1634f00ce00878148ce3612e1a87cb8a81057dc6edbfa9a9ef49c56c"
+  "hash": "3c01dfa32f0d0420f36261667661d1a56d87ff6cbda5a58e65ab437cbc0ac400"
 }

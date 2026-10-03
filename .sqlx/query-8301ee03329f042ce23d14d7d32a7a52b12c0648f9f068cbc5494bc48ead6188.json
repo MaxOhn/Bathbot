@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\nSELECT \n  map_id, \n  map_version AS version\nFROM \n  osu_maps\nWHERE \n  mapset_id = (\n    SELECT \n      mapset_id \n    FROM \n      osu_maps \n    WHERE \n      map_id = $1\n  )",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "map_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "version",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "8301ee03329f042ce23d14d7d32a7a52b12c0648f9f068cbc5494bc48ead6188"
+}
