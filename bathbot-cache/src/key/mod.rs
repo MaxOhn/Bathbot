@@ -62,6 +62,10 @@ impl RedisKey<'_> {
         Self::Single(SingleEntry::Member { guild, user })
     }
 
+    pub(crate) const fn members_complete() -> Self {
+        Self::Set(SetEntry::MembersComplete)
+    }
+
     pub(crate) const fn resume_data() -> Self {
         Self::Single(SingleEntry::ResumeData)
     }

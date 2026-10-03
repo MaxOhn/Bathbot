@@ -10,6 +10,7 @@ pub(crate) enum SetEntry {
     GuildChannels { guild: Id<GuildMarker> },
     GuildMembers { guild: Id<GuildMarker> },
     GuildRoles { guild: Id<GuildMarker> },
+    MembersComplete,
     Roles,
     UnavailableGuilds,
     Users,
@@ -47,6 +48,7 @@ impl SetEntry {
                 push(res, "GUILD_ROLES:");
                 push(res, buf.format(guild.get()));
             }
+            SetEntry::MembersComplete => res = Cow::Borrowed(b"MEMBERS_COMPLETE_IDS"),
             SetEntry::Roles => res = Cow::Borrowed(b"ROLE_IDS"),
             SetEntry::UnavailableGuilds => res = Cow::Borrowed(b"UNAVAILABLE_GUILD_IDS"),
             SetEntry::Users => res = Cow::Borrowed(b"USER_IDS"),

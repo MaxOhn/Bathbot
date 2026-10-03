@@ -99,7 +99,15 @@ impl Cache {
                 Event::MemberAdd(e) => cache.cache_member(e.guild_id, &e.member).await?,
                 Event::MemberRemove(e) => cache.delete_member(e.guild_id, e.user.id).await?,
                 Event::MemberUpdate(e) => cache.cache_member_update(e).await?,
-                Event::MemberChunk(e) => cache.cache_members(e.guild_id, &e.members).await?,
+                Event::MemberChunk(e) => {
+                    let change = cache.cache_members(e.guild_id, &e.members).await?;
+
+                    if e.chunk_index + 1 == e.chunk_count {
+                        cache.store_members_complete(e.guild_id).await?;
+                    }
+
+                    change
+                }
                 Event::MessageCreate(e) => match (e.guild_id, &e.member) {
                     (Some(guild_id), Some(member)) => {
                         cache

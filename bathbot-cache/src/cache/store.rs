@@ -414,6 +414,21 @@ impl Cache {
         })
     }
 
+    /// Mark a guild's full member list as complete.
+    ///
+    /// Marked when the last member chunk arrives; the flag is persisted in redis so
+    /// full member requests are not re-sent on every restart. Removed when the
+    /// guild is deleted from the cache (we were kicked), so a rejoin re-requests.
+    pub(crate) async fn store_members_complete(&self, guild: Id<GuildMarker>) -> Result<()> {
+        let mut conn = self.connection().await?;
+
+        conn.sadd::<_, _, ()>(RedisKey::members_complete(), guild.get())
+            .await
+            .wrap_err("Failed to mark guild members as complete")?;
+
+        Ok(())
+    }
+
     pub(crate) async fn cache_partial_guild(&self, guild: &PartialGuild) -> Result<CacheChange> {
         let mut change = self.cache_roles(guild.id, &guild.roles).await?;
 
@@ -570,8 +585,7 @@ impl Cache {
         let added: isize = if is_moved {
             0
         } else {
-            conn
-                .sadd(RedisKey::unavailable_guilds(), guild.get())
+            conn.sadd(RedisKey::unavailable_guilds(), guild.get())
                 .await
                 .wrap_err("Failed to add guild to unavailable guilds")?
         };

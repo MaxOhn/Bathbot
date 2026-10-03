@@ -50,6 +50,10 @@ impl Cache {
             .await
             .wrap_err("Failed to remove guild id entry")?;
 
+        conn.srem::<_, _, ()>(RedisKey::members_complete(), guild.get())
+            .await
+            .wrap_err("Failed to remove guild from members complete ids")?;
+
         let mut change = self.delete_guild_items(guild).await?;
 
         change.guilds -= removed;

@@ -77,6 +77,9 @@ pub(super) async fn gateway(
 
     let config = ConfigBuilder::new(config.tokens.discord.to_string(), intents)
         .presence(presence)
+        // Max allowed; sends full member lists in guild creates for all guilds up
+        // to 250 members without needing a member request
+        .large_threshold(250)
         .build();
 
     let config_callback = move |shard_id: ShardId, builder: ConfigBuilder| match resume_data
@@ -156,10 +159,12 @@ impl Context {
     }
 
     pub async fn request_guild_members(mut member_rx: UnboundedReceiver<(Id<GuildMarker>, u32)>) {
-        const TEN_MINUTES: Duration = Duration::from_mins(10);
+        // Discord allows one full member request per guild per 30 seconds; different
+        // guilds are unrestricted, so guilds can be requested in parallel
+        const INTERVAL: Duration = Duration::from_millis(50);
 
         let ctx = Context::get();
-        let mut interval = time::interval(TEN_MINUTES);
+        let mut interval = time::interval(INTERVAL);
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         interval.tick().await;
         let mut counter = 1;
@@ -176,6 +181,18 @@ impl Context {
             // If a guild is in the channel twice, only process the first and
             // ignore the second
             if !removed_opt {
+                continue;
+            }
+
+            // Guilds whose full member list is already cached (persisted in redis
+            // across restarts) are skipped; member events keep that data current
+            if Context::cache()
+                .members_complete(guild_id)
+                .await
+                .unwrap_or(false)
+            {
+                trace!("Skipping member request for guild {guild_id} (members already complete)");
+
                 continue;
             }
 

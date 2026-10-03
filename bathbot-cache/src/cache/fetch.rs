@@ -86,6 +86,14 @@ impl Cache {
         self.fetch_discord_type(RedisKey::guild(guild)).await
     }
 
+    pub async fn members_complete(&self, guild: Id<GuildMarker>) -> Result<bool, Report> {
+        let mut conn = self.connection().await?;
+
+        conn.sismember::<_, _, bool>(RedisKey::members_complete(), guild.get())
+            .await
+            .wrap_err("Failed to check guild members completion")
+    }
+
     pub async fn members(&self, guild: Id<GuildMarker>) -> Result<Vec<u64>, Report> {
         self.connection()
             .await
