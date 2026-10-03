@@ -12,8 +12,10 @@ use tokio::{
     task::JoinSet,
 };
 use twilight_gateway::{Event, EventTypeFlags, Shard, StreamExt as _};
-use twilight_model::id::{Id, marker::GuildMarker};
-use twilight_model::user::User;
+use twilight_model::{
+    id::{Id, marker::GuildMarker},
+    user::User,
+};
 
 use self::{interaction::handle_interaction, message::handle_message};
 use super::{BotMetrics, Context};

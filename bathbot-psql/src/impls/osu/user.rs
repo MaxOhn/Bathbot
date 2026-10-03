@@ -57,6 +57,7 @@ impl Database {
             .await
             .wrap_err("failed to fetch all")
     }
+
     pub async fn select_osu_user_stats(
         &self,
         discord_ids: &[i64],

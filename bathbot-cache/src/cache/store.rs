@@ -416,9 +416,10 @@ impl Cache {
 
     /// Mark a guild's full member list as complete.
     ///
-    /// Marked when the last member chunk arrives; the flag is persisted in redis so
-    /// full member requests are not re-sent on every restart. Removed when the
-    /// guild is deleted from the cache (we were kicked), so a rejoin re-requests.
+    /// Marked when the last member chunk arrives; the flag is persisted in
+    /// redis so full member requests are not re-sent on every restart.
+    /// Removed when the guild is deleted from the cache (we were kicked),
+    /// so a rejoin re-requests.
     pub(crate) async fn store_members_complete(&self, guild: Id<GuildMarker>) -> Result<()> {
         let mut conn = self.connection().await?;
 
@@ -590,8 +591,9 @@ impl Cache {
                 .wrap_err("Failed to add guild to unavailable guilds")?
         };
 
-        // Data is intentionally kept: the GUILD_CREATE backfill refreshes it, and deleting it
-        // would leave lookups missing until the backfill catches up.
+        // Data is intentionally kept: the GUILD_CREATE backfill refreshes it,
+        // and deleting it would leave lookups missing until the
+        // backfill catches up.
         Ok(CacheChange {
             guilds: if is_moved { -1 } else { 0 },
             unavailable_guilds: if is_moved { 1 } else { added },

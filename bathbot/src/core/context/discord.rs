@@ -159,8 +159,9 @@ impl Context {
     }
 
     pub async fn request_guild_members(mut member_rx: UnboundedReceiver<(Id<GuildMarker>, u32)>) {
-        // Discord allows one full member request per guild per 30 seconds; different
-        // guilds are unrestricted, so guilds can be requested in parallel
+        // Discord allows one full member request per guild per 30 seconds;
+        // different guilds are unrestricted, so guilds can be requested
+        // in parallel
         const INTERVAL: Duration = Duration::from_millis(50);
 
         let ctx = Context::get();
@@ -184,8 +185,9 @@ impl Context {
                 continue;
             }
 
-            // Guilds whose full member list is already cached (persisted in redis
-            // across restarts) are skipped; member events keep that data current
+            // Guilds whose full member list is already cached (persisted in
+            // redis across restarts) are skipped; member events
+            // keep that data current
             if Context::cache()
                 .members_complete(guild_id)
                 .await
