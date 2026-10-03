@@ -602,6 +602,18 @@ fn apply_settings(
         let prev = i.checked_sub(1).and_then(|i| settings.values.get(i));
         let next = settings.values.get(i + 1);
 
+        // Is there a visible value before `curr` on the same row? Hidden
+        // values (ratio, ranked date) take no space, so a row starting with
+        // one must still perform its line start.
+        let need_sep = settings.values[..i]
+            .iter()
+            .rev()
+            .take_while(|prev| prev.y == curr.y)
+            .any(|prev| {
+                !((prev.inner == Value::Ratio && hide_ratio())
+                    || (prev.inner == Value::MapRankedDate && hide_ranked_date()))
+            });
+
         match (prev.map(|p| &p.inner), &curr.inner, next.map(|n| &n.inner)) {
             (Some(Value::Grade), Value::Mods, _) if prev.is_some_and(|p| p.y == curr.y) => {
                 // Simple whitespace as separator for this case
@@ -684,7 +696,7 @@ fn apply_settings(
             ) if next.is_some_and(|n| curr.y == n.y) => {
                 // We're the first of the "`" boundary
 
-                if prev.is_some_and(|p| p.y == curr.y) {
+                if need_sep {
                     let sep = if curr.y == SettingValue::NAME_Y {
                         SEP_NAME
                     } else {
@@ -740,15 +752,6 @@ fn apply_settings(
                 }
 
                 let curr = value.as_ref();
-
-                let need_sep = settings.values[..i]
-                    .iter()
-                    .rev()
-                    .take_while(|prev| prev.y == curr.y)
-                    .any(|prev| {
-                        !((prev.inner == Value::Ratio && hide_ratio())
-                            || (prev.inner == Value::MapRankedDate && hide_ranked_date()))
-                    });
 
                 if need_sep {
                     let sep = if curr.y == SettingValue::NAME_Y {
