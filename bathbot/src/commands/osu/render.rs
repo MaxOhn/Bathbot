@@ -18,6 +18,7 @@ use rosu_v2::error::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     channel::{Attachment, Message},
+    guild::Permissions,
     id::{
         Id,
         marker::{ChannelMarker, MessageMarker, UserMarker},
@@ -153,6 +154,19 @@ pub async fn slash_render(mut command: InteractionCommand) -> Result<()> {
 async fn render_replay(command: InteractionCommand, replay: RenderReplay) -> Result<()> {
     let owner = command.user_id()?;
 
+    if command
+        .permissions
+        .is_some_and(|perms| !perms.contains(Permissions::SEND_MESSAGES))
+    {
+        command.defer(false).await?;
+
+        let _ = command
+            .error("Cannot render, I cannot send messages in this channel")
+            .await;
+
+        return Ok(());
+    }
+
     if let Some(cooldown) = Context::check_ratelimit(owner, BucketName::Render) {
         trace!("Ratelimiting user {owner} on bucket `Render` for {cooldown} seconds");
 
@@ -256,6 +270,17 @@ async fn render_replay(command: InteractionCommand, replay: RenderReplay) -> Res
 
 async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Result<()> {
     command.defer(false).await?;
+
+    if command
+        .permissions
+        .is_some_and(|perms| !perms.contains(Permissions::SEND_MESSAGES))
+    {
+        let _ = command
+            .error("Cannot render, I cannot send messages in this channel")
+            .await;
+
+        return Ok(());
+    }
 
     let owner = command.user_id()?;
     let RenderScore { score_id } = score;
