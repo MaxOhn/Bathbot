@@ -333,7 +333,7 @@ impl SkinValidation {
         let violation_ptr = AtomicPtr::new(violation.as_mut_ptr());
 
         let cb = |v| {
-            let _ = violation_ptr.fetch_update(Relaxed, Relaxed, |ptr| {
+            let _ = violation_ptr.try_update(Relaxed, Relaxed, |ptr| {
                 // SAFETY: ptr comes from MaybeUninit and is thus aligned and
                 // safe to write
                 unsafe { ptr.write(Some(v)) };
