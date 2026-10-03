@@ -214,43 +214,27 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                 };
 
                 let arrow_row = |idx: Option<usize>| {
-                    let (disable_left, disable_up, disable_down, disable_right) =
-                        if let Some(idx) = idx {
-                            let curr_y = self.inner.settings.values[idx].y;
+                    let (disable_left, disable_up, disable_down, disable_right) = if let Some(idx) =
+                        idx
+                    {
+                        let values = &self.inner.settings.values;
+                        let curr_y = values[idx].y;
 
-                            let to_left = self.inner.settings.values[..idx]
-                                .iter()
-                                .rev()
-                                .take_while(|value| value.y == curr_y)
-                                .count();
+                        let to_left = x_of(values, idx);
+                        let to_right = to_right(values, idx);
 
-                            let to_right = self.inner.settings.values[idx + 1..]
-                                .iter()
-                                .take_while(|value| value.y == curr_y)
-                                .count();
+                        // Disable up if too many values in field name
+                        let disable_up = curr_y == 0 || (idx == 1 && row_len(values, 0) >= 10);
 
-                            // Disable up if too many values in field name
-                            let disable_up = curr_y == 0
-                                || (idx == 1
-                                    && self
-                                        .inner
-                                        .settings
-                                        .values
-                                        .iter()
-                                        .take_while(|value| value.y == 0)
-                                        .count()
-                                        >= 10);
+                        // No need to check if the first row only contains
+                        // one value because if so then the current second
+                        // row would be moved up anyway.
+                        let disable_down = values.len() == 1 || curr_y == SettingValue::FOOTER_Y;
 
-                            // No need to check if the first row only contains
-                            // one value because if so then the current second
-                            // row would be moved up anyway.
-                            let disable_down = self.inner.settings.values.len() == 1
-                                || curr_y == SettingValue::FOOTER_Y;
-
-                            (to_left == 0, disable_up, disable_down, to_right == 0)
-                        } else {
-                            (true, true, true, true)
-                        };
+                        (to_left == 0, disable_up, disable_down, to_right == 0)
+                    } else {
+                        (true, true, true, true)
+                    };
 
                     Component::ActionRow(ActionRow {
                         components: vec![
@@ -910,6 +894,10 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
             return ComponentResult::Ignore;
         }
 
+        // Snapshot so a move that breaks the row order invariant can be
+        // reverted instead of stored
+        let original_values = self.inner.settings.values.clone();
+
         match component.data.custom_id.as_str() {
             "embed_builder_section" => {
                 let Some(value) = component.data.values.first() else {
@@ -983,7 +971,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                 let last_y = self.inner.settings.values[last_idx].y;
 
                 let value = SettingValue {
-                    inner: self.value_kind.into(),
+                    inner: self.value_kind.value(),
                     y: last_y + 1,
                 };
 
@@ -1005,12 +993,7 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                 }
 
                 let curr_y = self.inner.settings.values[idx].y;
-
-                let curr_x = self.inner.settings.values[..idx]
-                    .iter()
-                    .rev()
-                    .take_while(|value| value.y == curr_y)
-                    .count();
+                let curr_x = x_of(&self.inner.settings.values, idx);
 
                 let next_y = self.inner.settings.values.get(idx + 1).map(|value| value.y);
 
@@ -1070,15 +1053,17 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                 }
 
                 let curr_y = self.inner.settings.values[idx].y;
+                let curr_x = x_of(&self.inner.settings.values, idx);
 
-                let mut curr_x = 0;
                 let mut prev_y = None;
                 let mut prev_row_len = 0;
 
                 for prev in self.inner.settings.values[..idx].iter().rev() {
                     if prev.y == curr_y {
-                        curr_x += 1;
-                    } else if curr_y == SettingValue::FOOTER_Y {
+                        continue;
+                    }
+
+                    if curr_y == SettingValue::FOOTER_Y {
                         prev_y = Some(prev.y);
 
                         break;
@@ -1139,24 +1124,9 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
                     return ComponentResult::Err(eyre!("Cannot move footer value down"));
                 }
 
-                let curr_x = self.inner.settings.values[..idx]
-                    .iter()
-                    .rev()
-                    .take_while(|value| value.y == curr_y)
-                    .count();
-
-                let mut to_right_count = 0;
-                let mut next_row_len = 0;
-
-                for next in self.inner.settings.values[idx + 1..].iter() {
-                    if next.y == curr_y {
-                        to_right_count += 1;
-                    } else if next.y == curr_y + 1 {
-                        next_row_len += 1;
-                    } else {
-                        break;
-                    }
-                }
+                let curr_x = x_of(&self.inner.settings.values, idx);
+                let to_right_count = to_right(&self.inner.settings.values, idx);
+                let next_row_len = row_len(&self.inner.settings.values, curr_y + 1);
 
                 if curr_x == 0 && to_right_count == 0 {
                     // Move the footer up as field name
@@ -1503,7 +1473,14 @@ impl IActiveMessage for ScoreEmbedBuilderActive {
             .all(|window| window[0].y <= window[1].y);
 
         if !right_order {
-            debug!(values = ?self.inner.settings.values, "Wrong setting values order");
+            // A move produced values out of row order; the row-based lookups
+            // in the builder and in apply_settings rely on that, so revert
+            // and do not store the state
+            self.inner.settings.values = original_values;
+
+            return ComponentResult::Err(eyre!(
+                "Cannot apply move, the resulting values are out of order"
+            ));
         }
 
         let store_fut =
@@ -1618,36 +1595,65 @@ impl ValueKind {
             Value::Mapper(_) => ValueKind::Mapper,
         }
     }
-}
 
-impl From<ValueKind> for Value {
-    fn from(kind: ValueKind) -> Self {
-        match kind {
-            ValueKind::Grade => Self::Grade,
-            ValueKind::Mods => Self::Mods,
-            ValueKind::Score => Self::Score,
-            ValueKind::Accuracy => Self::Accuracy,
-            ValueKind::ScoreDate => Self::ScoreDate,
-            ValueKind::Pp => Self::Pp(Default::default()),
-            ValueKind::Combo => Self::Combo(Default::default()),
-            ValueKind::Hitresults => Self::Hitresults(Default::default()),
-            ValueKind::Ratio => Self::Ratio,
-            ValueKind::ScoreId => Self::ScoreId,
-            ValueKind::Stars => Self::Stars,
-            ValueKind::Length => Self::Length,
-            ValueKind::Bpm => Self::Bpm(Default::default()),
-            ValueKind::Ar => Self::Ar,
-            ValueKind::Cs => Self::Cs,
-            ValueKind::Hp => Self::Hp,
-            ValueKind::Od => Self::Od,
-            ValueKind::CountObjects => Self::CountObjects(Default::default()),
-            ValueKind::CountSliders => Self::CountSliders(Default::default()),
-            ValueKind::CountSpinners => Self::CountSpinners(Default::default()),
-            ValueKind::MapRankedDate => Self::MapRankedDate,
-            ValueKind::Mapper => Self::Mapper(Default::default()),
-            ValueKind::Artist | ValueKind::None => unreachable!(),
+    /// A new value of this kind with default options.
+    ///
+    /// # Panics
+    /// `None` and `Artist` are not field values; the UI does not offer
+    /// them for showing.
+    fn value(self) -> Value {
+        match self {
+            Self::Artist | Self::None => unreachable!(),
+            Self::Grade => Value::Grade,
+            Self::Mods => Value::Mods,
+            Self::Score => Value::Score,
+            Self::Accuracy => Value::Accuracy,
+            Self::ScoreDate => Value::ScoreDate,
+            Self::Pp => Value::Pp(Default::default()),
+            Self::Combo => Value::Combo(Default::default()),
+            Self::Hitresults => Value::Hitresults(Default::default()),
+            Self::Ratio => Value::Ratio,
+            Self::ScoreId => Value::ScoreId,
+            Self::Stars => Value::Stars,
+            Self::Length => Value::Length,
+            Self::Bpm => Value::Bpm(Default::default()),
+            Self::Ar => Value::Ar,
+            Self::Cs => Value::Cs,
+            Self::Hp => Value::Hp,
+            Self::Od => Value::Od,
+            Self::CountObjects => Value::CountObjects(Default::default()),
+            Self::CountSliders => Value::CountSliders(Default::default()),
+            Self::CountSpinners => Value::CountSpinners(Default::default()),
+            Self::MapRankedDate => Value::MapRankedDate,
+            Self::Mapper => Value::Mapper(Default::default()),
         }
     }
+}
+
+/// How many values sit to the left of `idx` on its row (its 0-based column).
+fn x_of(values: &[SettingValue], idx: usize) -> usize {
+    let y = values[idx].y;
+
+    values[..idx]
+        .iter()
+        .rev()
+        .take_while(|value| value.y == y)
+        .count()
+}
+
+/// How many values sit to the right of `idx` on its row.
+fn to_right(values: &[SettingValue], idx: usize) -> usize {
+    let y = values[idx].y;
+
+    values[idx + 1..]
+        .iter()
+        .take_while(|value| value.y == y)
+        .count()
+}
+
+/// How many values are on row `y`.
+fn row_len(values: &[SettingValue], y: u8) -> usize {
+    values.iter().filter(|value| value.y == y).count()
 }
 
 fn disable_hide(settings: &ScoreEmbedSettings, idx: usize) -> bool {
