@@ -4,7 +4,7 @@ use bathbot_model::{UserModeStatsColumn, UserStatsColumn, UserStatsEntries, User
 use eyre::{Result, WrapErr};
 use futures::StreamExt;
 use rosu_v2::prelude::{GameMode, UserExtended, Username};
-use time::OffsetDateTime;
+use sqlx::{FromRow, postgres::PgRow};
 
 use crate::{
     Database,
@@ -16,7 +16,47 @@ fn convert_entries<V>(entries: Vec<DbUserStatsEntry<V>>) -> Vec<UserStatsEntry<V
     unsafe { mem::transmute(entries) }
 }
 
+fn sort_dedup<V: PartialOrd>(entries: &mut Vec<DbUserStatsEntry<V>>, ascending: bool) {
+    entries.sort_unstable_by(|a, b| {
+        let cmp = if ascending {
+            a.value.partial_cmp(&b.value)
+        } else {
+            b.value.partial_cmp(&a.value)
+        };
+
+        cmp.unwrap_or(Ordering::Equal)
+            .then_with(|| a.name.cmp(&b.name))
+    });
+
+    entries.dedup_by(|a, b| a.name == b.name);
+}
+
 impl Database {
+    async fn fetch_entries<V>(
+        &self,
+        query: &str,
+        discord_ids: &[i64],
+        mode: Option<GameMode>,
+        country_code: Option<&str>,
+    ) -> Result<Vec<DbUserStatsEntry<V>>>
+    where
+        DbUserStatsEntry<V>: Send + Unpin,
+        for<'r> DbUserStatsEntry<V>: FromRow<'r, PgRow>,
+    {
+        let mut query = sqlx::query_as(query);
+
+        query = query.bind(discord_ids);
+
+        if let Some(mode) = mode {
+            query = query.bind(mode as i16);
+        }
+
+        query
+            .bind(country_code)
+            .fetch_all(self)
+            .await
+            .wrap_err("failed to fetch all")
+    }
     pub async fn select_osu_user_stats(
         &self,
         discord_ids: &[i64],
@@ -25,30 +65,30 @@ impl Database {
     ) -> Result<UserStatsEntries> {
         let query = format!(
             r#"
-SELECT 
-  username, 
-  country_code, 
-  {column} AS value 
-FROM 
+SELECT
+  username,
+  country_code,
+  {column} AS value
+FROM
   (
-    SELECT 
-      osu_id 
-    FROM 
-      user_configs 
-    WHERE 
-      discord_id = ANY($1) 
+    SELECT
+      osu_id
+    FROM
+      user_configs
+    WHERE
+      discord_id = ANY($1)
       AND osu_id IS NOT NULL
-  ) AS configs 
-  JOIN osu_user_names AS names ON configs.osu_id = names.user_id 
+  ) AS configs
+  JOIN osu_user_names AS names ON configs.osu_id = names.user_id
   JOIN (
-    SELECT 
-      user_id, 
-      country_code, 
-      {column} 
-    FROM 
+    SELECT
+      user_id,
+      country_code,
+      {column}
+    FROM
       osu_user_stats
-    WHERE 
-      $2 :: VARCHAR(2) is NULL 
+    WHERE
+      $2 :: VARCHAR(2) is NULL
       OR country_code = $2
   ) AS stats ON names.user_id = stats.user_id"#,
             column = column.column(),
@@ -68,18 +108,11 @@ FROM
             | UserStatsColumn::PlayedMaps
             | UserStatsColumn::RankedMapsets
             | UserStatsColumn::Namechanges => {
-                let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(&query)
-                    .bind(discord_ids)
-                    .bind(country_code)
-                    .fetch_all(self)
-                    .await
-                    .wrap_err("failed to fetch all")?;
+                let mut entries: Vec<DbUserStatsEntry<i32>> = self
+                    .fetch_entries(&query, discord_ids, None, country_code)
+                    .await?;
 
-                entries.sort_unstable_by(|a, b| {
-                    b.value.cmp(&a.value).then_with(|| a.name.cmp(&b.name))
-                });
-
-                entries.dedup_by(|a, b| a.name == b.name);
+                sort_dedup(&mut entries, false);
 
                 let entries = entries
                     .into_iter()
@@ -92,19 +125,13 @@ FROM
 
                 Ok(UserStatsEntries::Amount(entries))
             }
+
             UserStatsColumn::JoinDate => {
-                let mut entries: Vec<DbUserStatsEntry<OffsetDateTime>> = sqlx::query_as(&query)
-                    .bind(discord_ids)
-                    .bind(country_code)
-                    .fetch_all(self)
-                    .await
-                    .wrap_err("failed to fetch all")?;
+                let mut entries = self
+                    .fetch_entries(&query, discord_ids, None, country_code)
+                    .await?;
 
-                entries.sort_unstable_by(|a, b| {
-                    a.value.cmp(&b.value).then_with(|| a.name.cmp(&b.name))
-                });
-
-                entries.dedup_by(|a, b| a.name == b.name);
+                sort_dedup(&mut entries, true);
 
                 Ok(UserStatsEntries::Date(convert_entries(entries)))
             }
@@ -121,38 +148,38 @@ FROM
         fn default_query(column: &str) -> String {
             format!(
                 r#"
-SELECT 
-  username, 
-  country_code, 
-  value 
-FROM 
+SELECT
+  username,
+  country_code,
+  value
+FROM
   (
-    SELECT 
-      osu_id 
-    FROM 
-      user_configs 
-    WHERE 
-      discord_id = ANY($1) 
+    SELECT
+      osu_id
+    FROM
+      user_configs
+    WHERE
+      discord_id = ANY($1)
       AND osu_id IS NOT NULL
-  ) AS configs 
-  JOIN osu_user_names AS names ON configs.osu_id = names.user_id 
+  ) AS configs
+  JOIN osu_user_names AS names ON configs.osu_id = names.user_id
   JOIN (
-    SELECT 
-      user_id, 
-      {column} AS value 
-    FROM 
-      osu_user_mode_stats 
-    WHERE 
+    SELECT
+      user_id,
+      {column} AS value
+    FROM
+      osu_user_mode_stats
+    WHERE
       gamemode = $2
-  ) AS stats ON names.user_id = stats.user_id 
+  ) AS stats ON names.user_id = stats.user_id
   JOIN (
-    SELECT 
-      user_id, 
-      country_code 
-    FROM 
+    SELECT
+      user_id,
+      country_code
+    FROM
       osu_user_stats
-    WHERE 
-      $3 :: VARCHAR(2) is NULL 
+    WHERE
+      $3 :: VARCHAR(2) is NULL
       OR country_code = $3
   ) AS country ON names.user_id = country.user_id"#
             )
@@ -162,82 +189,62 @@ FROM
             UserModeStatsColumn::Accuracy => {
                 let query = default_query(column.column().unwrap());
 
-                let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(&query)
-                    .bind(discord_ids)
-                    .bind(mode as i16)
-                    .bind(country_code)
-                    .fetch_all(self)
-                    .await
-                    .wrap_err("failed to fetch all")?;
+                let mut entries = self
+                    .fetch_entries(&query, discord_ids, Some(mode), country_code)
+                    .await?;
 
-                entries.sort_unstable_by(|a, b| {
-                    b.value
-                        .partial_cmp(&a.value)
-                        .unwrap_or(Ordering::Equal)
-                        .then_with(|| a.name.cmp(&b.name))
-                });
-
-                entries.dedup_by(|a, b| a.name == b.name);
+                sort_dedup(&mut entries, false);
 
                 Ok(UserStatsEntries::Accuracy(convert_entries(entries)))
             }
+
             UserModeStatsColumn::AverageHits => {
                 let query = r#"
-SELECT 
-  username, 
-  country_code, 
-  GREATEST(total_hits::FLOAT4 / NULLIF(playcount::FLOAT4, 0), 0) AS value 
-FROM 
+SELECT
+  username,
+  country_code,
+  GREATEST(total_hits::FLOAT4 / NULLIF(playcount::FLOAT4, 0), 0) AS value
+FROM
   (
-    SELECT 
-      osu_id 
-    FROM 
-      user_configs 
-    WHERE 
-      discord_id = ANY($1) 
+    SELECT
+      osu_id
+    FROM
+      user_configs
+    WHERE
+      discord_id = ANY($1)
       AND osu_id IS NOT NULL
-  ) AS configs 
-  JOIN osu_user_names AS names ON configs.osu_id = names.user_id 
+  ) AS configs
+  JOIN osu_user_names AS names ON configs.osu_id = names.user_id
   JOIN (
-    SELECT 
-      user_id, 
-      total_hits, 
-      playcount 
-    FROM 
-      osu_user_mode_stats 
-    WHERE 
+    SELECT
+      user_id,
+      total_hits,
+      playcount
+    FROM
+      osu_user_mode_stats
+    WHERE
       gamemode = $2
-  ) AS stats ON names.user_id = stats.user_id 
+  ) AS stats ON names.user_id = stats.user_id
   JOIN (
-    SELECT 
-      user_id, 
-      country_code 
-    FROM 
+    SELECT
+      user_id,
+      country_code
+    FROM
       osu_user_stats
-    WHERE 
-      $3 :: VARCHAR(2) is NULL 
+    WHERE
+      $3 :: VARCHAR(2) is NULL
       OR country_code = $3
   ) AS country ON names.user_id = country.user_id"#;
 
-                let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(query)
-                    .bind(discord_ids)
-                    .bind(mode as i16)
-                    .bind(country_code)
-                    .fetch_all(self)
-                    .await
-                    .wrap_err("failed to fetch all")?;
+                let mut entries = self
+                    .fetch_entries(query, discord_ids, Some(mode), country_code)
+                    .await?;
 
-                entries.sort_unstable_by(|a, b| {
-                    b.value
-                        .partial_cmp(&a.value)
-                        .unwrap_or(Ordering::Equal)
-                        .then_with(|| a.name.cmp(&b.name))
-                });
-
-                entries.dedup_by(|a, b| a.name == b.name);
+                sort_dedup(&mut entries, false);
 
                 Ok(UserStatsEntries::Float(convert_entries(entries)))
             }
+
             UserModeStatsColumn::CountSsh
             | UserModeStatsColumn::CountSs
             | UserModeStatsColumn::CountSh
@@ -245,19 +252,11 @@ FROM
             | UserModeStatsColumn::CountA => {
                 let query = default_query(column.column().unwrap());
 
-                let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(&query)
-                    .bind(discord_ids)
-                    .bind(mode as i16)
-                    .bind(country_code)
-                    .fetch_all(self)
-                    .await
-                    .wrap_err("failed to fetch all")?;
+                let mut entries: Vec<DbUserStatsEntry<i32>> = self
+                    .fetch_entries(&query, discord_ids, Some(mode), country_code)
+                    .await?;
 
-                entries.sort_unstable_by(|a, b| {
-                    b.value.cmp(&a.value).then_with(|| a.name.cmp(&b.name))
-                });
-
-                entries.dedup_by(|a, b| a.name == b.name);
+                sort_dedup(&mut entries, false);
 
                 let entries = entries
                     .into_iter()
@@ -270,60 +269,50 @@ FROM
 
                 Ok(UserStatsEntries::AmountWithNegative(entries))
             }
+
             UserModeStatsColumn::TotalSs => {
                 let query = r#"
-SELECT 
-  username, 
-  country_code, 
-  COALESCE(count_ssh, 0) + COALESCE(count_ss, 0) AS value 
-FROM 
+SELECT
+  username,
+  country_code,
+  COALESCE(count_ssh, 0) + COALESCE(count_ss, 0) AS value
+FROM
   (
-    SELECT 
-      osu_id 
-    FROM 
-      user_configs 
-    WHERE 
-      discord_id = ANY($1) 
+    SELECT
+      osu_id
+    FROM
+      user_configs
+    WHERE
+      discord_id = ANY($1)
       AND osu_id IS NOT NULL
-  ) AS configs 
-  JOIN osu_user_names AS names ON configs.osu_id = names.user_id 
+  ) AS configs
+  JOIN osu_user_names AS names ON configs.osu_id = names.user_id
   JOIN (
-    SELECT 
-      user_id, 
-      count_ssh, 
-      count_ss 
-    FROM 
-      osu_user_mode_stats 
-    WHERE 
+    SELECT
+      user_id,
+      count_ssh,
+      count_ss
+    FROM
+      osu_user_mode_stats
+    WHERE
       gamemode = $2
-  ) AS stats ON names.user_id = stats.user_id 
+  ) AS stats ON names.user_id = stats.user_id
   JOIN (
-    SELECT 
-      user_id, 
-      country_code 
-    FROM 
+    SELECT
+      user_id,
+      country_code
+    FROM
       osu_user_stats
-    WHERE 
-      $3 :: VARCHAR(2) is NULL 
+    WHERE
+      $3 :: VARCHAR(2) is NULL
       OR country_code = $3
   ) AS country ON names.user_id = country.user_id"#;
 
-                let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(query)
-                    .bind(discord_ids)
-                    .bind(mode as i16)
-                    .bind(country_code)
-                    .fetch_all(self)
-                    .await
-                    .wrap_err("failed to fetch all")?;
+                let mut entries: Vec<DbUserStatsEntry<i32>> = self
+                    .fetch_entries(query, discord_ids, Some(mode), country_code)
+                    .await?;
 
-                entries.sort_unstable_by(|a, b| {
-                    b.value
-                        .partial_cmp(&a.value)
-                        .unwrap_or(Ordering::Equal)
-                        .then_with(|| a.name.cmp(&b.name))
-                });
-
-                entries.dedup_by(|a, b| a.name == b.name);
+                sort_dedup(&mut entries, false);
 
                 let entries = entries
                     .into_iter()
@@ -336,60 +325,50 @@ FROM
 
                 Ok(UserStatsEntries::AmountWithNegative(entries))
             }
+
             UserModeStatsColumn::TotalS => {
                 let query = r#"
-SELECT 
-  username, 
-  country_code, 
-  COALESCE(count_sh, 0) + COALESCE(count_s, 0) AS value 
-FROM 
+SELECT
+  username,
+  country_code,
+  COALESCE(count_sh, 0) + COALESCE(count_s, 0) AS value
+FROM
   (
-    SELECT 
-      osu_id 
-    FROM 
-      user_configs 
-    WHERE 
-      discord_id = ANY($1) 
+    SELECT
+      osu_id
+    FROM
+      user_configs
+    WHERE
+      discord_id = ANY($1)
       AND osu_id IS NOT NULL
-  ) AS configs 
-  JOIN osu_user_names AS names ON configs.osu_id = names.user_id 
+  ) AS configs
+  JOIN osu_user_names AS names ON configs.osu_id = names.user_id
   JOIN (
-    SELECT 
-      user_id, 
-      count_sh, 
-      count_s 
-    FROM 
-      osu_user_mode_stats 
-    WHERE 
+    SELECT
+      user_id,
+      count_sh,
+      count_s
+    FROM
+      osu_user_mode_stats
+    WHERE
       gamemode = $2
-  ) AS stats ON names.user_id = stats.user_id 
+  ) AS stats ON names.user_id = stats.user_id
   JOIN (
-    SELECT 
-      user_id, 
-      country_code 
-    FROM 
+    SELECT
+      user_id,
+      country_code
+    FROM
       osu_user_stats
-    WHERE 
-      $3 :: VARCHAR(2) is NULL 
+    WHERE
+      $3 :: VARCHAR(2) is NULL
       OR country_code = $3
   ) AS country ON names.user_id = country.user_id"#;
 
-                let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(query)
-                    .bind(discord_ids)
-                    .bind(mode as i16)
-                    .bind(country_code)
-                    .fetch_all(self)
-                    .await
-                    .wrap_err("failed to fetch all")?;
+                let mut entries: Vec<DbUserStatsEntry<i32>> = self
+                    .fetch_entries(query, discord_ids, Some(mode), country_code)
+                    .await?;
 
-                entries.sort_unstable_by(|a, b| {
-                    b.value
-                        .partial_cmp(&a.value)
-                        .unwrap_or(Ordering::Equal)
-                        .then_with(|| a.name.cmp(&b.name))
-                });
-
-                entries.dedup_by(|a, b| a.name == b.name);
+                sort_dedup(&mut entries, false);
 
                 let entries = entries
                     .into_iter()
@@ -402,44 +381,27 @@ FROM
 
                 Ok(UserStatsEntries::AmountWithNegative(entries))
             }
+
             UserModeStatsColumn::Level => {
                 let query = default_query(column.column().unwrap());
 
-                let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(&query)
-                    .bind(discord_ids)
-                    .bind(mode as i16)
-                    .bind(country_code)
-                    .fetch_all(self)
-                    .await
-                    .wrap_err("failed to fetch all")?;
+                let mut entries = self
+                    .fetch_entries(&query, discord_ids, Some(mode), country_code)
+                    .await?;
 
-                entries.sort_unstable_by(|a, b| {
-                    b.value
-                        .partial_cmp(&a.value)
-                        .unwrap_or(Ordering::Equal)
-                        .then_with(|| a.name.cmp(&b.name))
-                });
-
-                entries.dedup_by(|a, b| a.name == b.name);
+                sort_dedup(&mut entries, false);
 
                 Ok(UserStatsEntries::Float(convert_entries(entries)))
             }
+
             UserModeStatsColumn::Playtime => {
                 let query = default_query(column.column().unwrap());
 
-                let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(&query)
-                    .bind(discord_ids)
-                    .bind(mode as i16)
-                    .bind(country_code)
-                    .fetch_all(self)
-                    .await
-                    .wrap_err("failed to fetch all")?;
+                let mut entries: Vec<DbUserStatsEntry<i32>> = self
+                    .fetch_entries(&query, discord_ids, Some(mode), country_code)
+                    .await?;
 
-                entries.sort_unstable_by(|a, b| {
-                    b.value.cmp(&a.value).then_with(|| a.name.cmp(&b.name))
-                });
-
-                entries.dedup_by(|a, b| a.name == b.name);
+                sort_dedup(&mut entries, false);
 
                 let entries = entries
                     .into_iter()
@@ -452,105 +414,78 @@ FROM
 
                 Ok(UserStatsEntries::Playtime(entries))
             }
+
             UserModeStatsColumn::Pp => {
                 let query = default_query(column.column().unwrap());
 
-                let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(&query)
-                    .bind(discord_ids)
-                    .bind(mode as i16)
-                    .bind(country_code)
-                    .fetch_all(self)
-                    .await
-                    .wrap_err("Failed to fetch all")?;
+                let mut entries = self
+                    .fetch_entries(&query, discord_ids, Some(mode), country_code)
+                    .await?;
 
-                entries.sort_unstable_by(|a, b| {
-                    b.value
-                        .partial_cmp(&a.value)
-                        .unwrap_or(Ordering::Equal)
-                        .then_with(|| a.name.cmp(&b.name))
-                });
-
-                entries.dedup_by(|a, b| a.name == b.name);
+                sort_dedup(&mut entries, false);
 
                 Ok(UserStatsEntries::PpF32(convert_entries(entries)))
             }
+
             UserModeStatsColumn::PpPerMonth => {
                 let query = r#"
-SELECT 
-username, 
-country_code, 
-GREATEST((30.67 * pp / NULLIF(EXTRACT(DAYS FROM (NOW() - join_date)), 0))::FLOAT4, 0) AS value 
-FROM 
+SELECT
+username,
+country_code,
+GREATEST((30.67 * pp / NULLIF(EXTRACT(DAYS FROM (NOW() - join_date)), 0))::FLOAT4, 0) AS value
+FROM
 (
-  SELECT 
-    osu_id 
-  FROM 
-    user_configs 
-  WHERE 
-    discord_id = ANY($1) 
+  SELECT
+    osu_id
+  FROM
+    user_configs
+  WHERE
+    discord_id = ANY($1)
     AND osu_id IS NOT NULL
-) AS configs 
-JOIN osu_user_names AS names ON configs.osu_id = names.user_id 
+) AS configs
+JOIN osu_user_names AS names ON configs.osu_id = names.user_id
 JOIN (
-  SELECT 
-    user_id, 
-    pp 
-  FROM 
-    osu_user_mode_stats 
-  WHERE 
+  SELECT
+    user_id,
+    pp
+  FROM
+    osu_user_mode_stats
+  WHERE
     gamemode = $2
-) AS stats ON names.user_id = stats.user_id 
+) AS stats ON names.user_id = stats.user_id
 JOIN (
-  SELECT 
-    user_id, 
-    country_code, 
-    join_date 
-  FROM 
+  SELECT
+    user_id,
+    country_code,
+    join_date
+  FROM
     osu_user_stats
-  WHERE 
-    $3 :: VARCHAR(2) is NULL 
+  WHERE
+    $3 :: VARCHAR(2) is NULL
     OR country_code = $3
 ) AS country ON names.user_id = country.user_id"#;
 
-                let mut entries: Vec<DbUserStatsEntry<f32>> = sqlx::query_as(query)
-                    .bind(discord_ids)
-                    .bind(mode as i16)
-                    .bind(country_code)
-                    .fetch_all(self)
-                    .await
-                    .wrap_err("Failed to fetch all")?;
+                let mut entries = self
+                    .fetch_entries(query, discord_ids, Some(mode), country_code)
+                    .await?;
 
-                entries.sort_unstable_by(|a, b| {
-                    b.value
-                        .partial_cmp(&a.value)
-                        .unwrap_or(Ordering::Equal)
-                        .then_with(|| a.name.cmp(&b.name))
-                });
-
-                entries.dedup_by(|a, b| a.name == b.name);
+                sort_dedup(&mut entries, false);
 
                 Ok(UserStatsEntries::PpF32(convert_entries(entries)))
             }
+
             UserModeStatsColumn::RankCountry | UserModeStatsColumn::RankGlobal => {
                 let query = default_query(column.column().unwrap());
 
-                let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(&query)
-                    .bind(discord_ids)
-                    .bind(mode as i16)
-                    .bind(country_code)
-                    .fetch_all(self)
-                    .await
-                    .wrap_err("failed to fetch all")?;
+                let mut entries: Vec<DbUserStatsEntry<i32>> = self
+                    .fetch_entries(&query, discord_ids, Some(mode), country_code)
+                    .await?;
 
                 // Could be handled in the query already
                 // * Filter out inactive players
                 entries.retain(|entry| entry.value != 0);
 
-                entries.sort_unstable_by(|a, b| {
-                    a.value.cmp(&b.value).then_with(|| a.name.cmp(&b.name))
-                });
-
-                entries.dedup_by(|a, b| a.name == b.name);
+                sort_dedup(&mut entries, true);
 
                 let entries = entries
                     .into_iter()
@@ -563,25 +498,18 @@ JOIN (
 
                 Ok(UserStatsEntries::Rank(entries))
             }
+
             UserModeStatsColumn::MaxCombo
             | UserModeStatsColumn::Playcount
             | UserModeStatsColumn::ReplaysWatched
             | UserModeStatsColumn::ScoresFirst => {
                 let query = default_query(column.column().unwrap());
 
-                let mut entries: Vec<DbUserStatsEntry<i32>> = sqlx::query_as(&query)
-                    .bind(discord_ids)
-                    .bind(mode as i16)
-                    .bind(country_code)
-                    .fetch_all(self)
-                    .await
-                    .wrap_err("failed to fetch all")?;
+                let mut entries: Vec<DbUserStatsEntry<i32>> = self
+                    .fetch_entries(&query, discord_ids, Some(mode), country_code)
+                    .await?;
 
-                entries.sort_unstable_by(|a, b| {
-                    b.value.cmp(&a.value).then_with(|| a.name.cmp(&b.name))
-                });
-
-                entries.dedup_by(|a, b| a.name == b.name);
+                sort_dedup(&mut entries, false);
 
                 let entries = entries
                     .into_iter()
@@ -594,24 +522,17 @@ JOIN (
 
                 Ok(UserStatsEntries::Amount(entries))
             }
+
             UserModeStatsColumn::ScoreRanked
             | UserModeStatsColumn::ScoreTotal
             | UserModeStatsColumn::TotalHits => {
                 let query = default_query(column.column().unwrap());
 
-                let mut entries: Vec<DbUserStatsEntry<i64>> = sqlx::query_as(&query)
-                    .bind(discord_ids)
-                    .bind(mode as i16)
-                    .bind(country_code)
-                    .fetch_all(self)
-                    .await
-                    .wrap_err("failed to fetch all")?;
+                let mut entries: Vec<DbUserStatsEntry<i64>> = self
+                    .fetch_entries(&query, discord_ids, Some(mode), country_code)
+                    .await?;
 
-                entries.sort_unstable_by(|a, b| {
-                    b.value.cmp(&a.value).then_with(|| a.name.cmp(&b.name))
-                });
-
-                entries.dedup_by(|a, b| a.name == b.name);
+                sort_dedup(&mut entries, false);
 
                 let entries = entries
                     .into_iter()
@@ -631,13 +552,13 @@ JOIN (
     pub async fn select_osu_user_ids(&self, names: &[String]) -> Result<HashMap<Username, u32>> {
         let query = sqlx::query!(
             r#"
-SELECT 
-user_id, 
-username 
-from 
-osu_user_names 
-WHERE 
-username ILIKE ANY($1)"#,
+SELECT
+  user_id,
+  username
+FROM
+  osu_user_names
+WHERE
+  username ILIKE ANY($1)"#,
             names
         );
 
@@ -661,12 +582,12 @@ username ILIKE ANY($1)"#,
     {
         let query = sqlx::query!(
             r#"
-SELECT 
-  user_id, 
-  username 
-FROM 
-  osu_user_names 
-WHERE 
+SELECT
+  user_id,
+  username
+FROM
+  osu_user_names
+WHERE
   user_id = ANY($1)"#,
             user_ids
         );
@@ -689,11 +610,11 @@ WHERE
 
         let query = sqlx::query!(
             r#"
-INSERT INTO osu_user_names (user_id, username) 
-VALUES 
-  ($1, $2) ON CONFLICT (user_id) DO 
-UPDATE 
-SET 
+INSERT INTO osu_user_names (user_id, username)
+VALUES
+  ($1, $2) ON CONFLICT (user_id) DO
+UPDATE
+SET
   username = $2"#,
             user.user_id as i32,
             user.username.as_str()
@@ -707,34 +628,34 @@ SET
         let query = sqlx::query!(
             r#"
 INSERT INTO osu_user_stats (
-  user_id, country_code, join_date, 
-  comment_count, kudosu_total, kudosu_available, 
-  forum_post_count, badges, played_maps, 
-  followers, graveyard_mapset_count, 
-  loved_mapset_count, mapping_followers, 
-  previous_usernames_count, ranked_mapset_count, 
+  user_id, country_code, join_date,
+  comment_count, kudosu_total, kudosu_available,
+  forum_post_count, badges, played_maps,
+  followers, graveyard_mapset_count,
+  loved_mapset_count, mapping_followers,
+  previous_usernames_count, ranked_mapset_count,
   medals
-) 
-VALUES 
+)
+VALUES
   (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
     $11, $12, $13, $14, $15, $16
-  ) ON CONFLICT (user_id) DO 
-UPDATE 
-SET 
-  country_code = $2, 
-  comment_count = $4, 
-  kudosu_total = $5, 
-  kudosu_available = $6, 
-  forum_post_count = $7, 
-  badges = $8, 
-  played_maps = $9, 
-  followers = $10, 
-  graveyard_mapset_count = $11, 
-  loved_mapset_count = $12, 
-  mapping_followers = $13, 
-  previous_usernames_count = $14, 
-  ranked_mapset_count = $15, 
+  ) ON CONFLICT (user_id) DO
+UPDATE
+SET
+  country_code = $2,
+  comment_count = $4,
+  kudosu_total = $5,
+  kudosu_available = $6,
+  forum_post_count = $7,
+  badges = $8,
+  played_maps = $9,
+  followers = $10,
+  graveyard_mapset_count = $11,
+  loved_mapset_count = $12,
+  mapping_followers = $13,
+  previous_usernames_count = $14,
+  ranked_mapset_count = $15,
   medals = $16,
   last_update = NOW()"#,
             user.user_id as i32,
@@ -764,38 +685,38 @@ SET
             let query = sqlx::query!(
                 r#"
 INSERT INTO osu_user_mode_stats (
-  user_id, gamemode, accuracy, pp, country_rank, 
-  global_rank, count_ss, count_ssh, 
-  count_s, count_sh, count_a, user_level, 
-  max_combo, playcount, playtime, ranked_score, 
-  replays_watched, total_hits, total_score, 
+  user_id, gamemode, accuracy, pp, country_rank,
+  global_rank, count_ss, count_ssh,
+  count_s, count_sh, count_a, user_level,
+  max_combo, playcount, playtime, ranked_score,
+  replays_watched, total_hits, total_score,
   scores_first
-) 
-VALUES 
+)
+VALUES
   (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 
-    $11, $12, $13, $14, $15, $16, $17, $18, 
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+    $11, $12, $13, $14, $15, $16, $17, $18,
     $19, $20
-  ) ON CONFLICT (user_id, gamemode) DO 
-UPDATE 
-SET 
-  accuracy = $3, 
-  pp = $4, 
-  country_rank = $5, 
-  global_rank = $6, 
-  count_ss = $7, 
-  count_ssh = $8, 
-  count_s = $9, 
-  count_sh = $10, 
-  count_a = $11, 
-  user_level = $12, 
-  max_combo = $13, 
-  playcount = $14, 
-  playtime = $15, 
-  ranked_score = $16, 
-  replays_watched = $17, 
-  total_hits = $18, 
-  total_score = $19, 
+  ) ON CONFLICT (user_id, gamemode) DO
+UPDATE
+SET
+  accuracy = $3,
+  pp = $4,
+  country_rank = $5,
+  global_rank = $6,
+  count_ss = $7,
+  count_ssh = $8,
+  count_s = $9,
+  count_sh = $10,
+  count_a = $11,
+  user_level = $12,
+  max_combo = $13,
+  playcount = $14,
+  playtime = $15,
+  ranked_score = $16,
+  replays_watched = $17,
+  total_hits = $18,
+  total_score = $19,
   scores_first = $20,
   last_update = NOW()"#,
                 user.user_id as i32,
@@ -839,9 +760,9 @@ SET
 
         let query = sqlx::query!(
             r#"
-DELETE FROM 
-  osu_user_stats 
-WHERE 
+DELETE FROM
+  osu_user_stats
+WHERE
   user_id = $1"#,
             user_id as i32
         );
@@ -853,9 +774,9 @@ WHERE
 
         let query = sqlx::query!(
             r#"
-DELETE FROM 
-  osu_user_mode_stats 
-WHERE 
+DELETE FROM
+  osu_user_mode_stats
+WHERE
   user_id = $1"#,
             user_id as i32
         );

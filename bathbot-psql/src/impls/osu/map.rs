@@ -248,22 +248,16 @@ SELECT
   map_id, 
   map_version AS version
 FROM 
-  (
-    SELECT 
-      map_id, 
-      mapset_id, 
-      map_version 
-    FROM 
-      osu_maps
-  ) AS maps 
-  JOIN (
+  osu_maps
+WHERE 
+  mapset_id = (
     SELECT 
       mapset_id 
     FROM 
       osu_maps 
     WHERE 
       map_id = $1
-  ) AS mapset ON maps.mapset_id = mapset.mapset_id"#,
+  )"#,
             map_id as i32
         );
 
