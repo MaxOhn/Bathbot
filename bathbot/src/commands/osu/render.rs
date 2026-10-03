@@ -635,13 +635,17 @@ impl OngoingRender {
 
                     let now = Instant::now();
 
+                    debug!(
+                        render_id = progress.render_id,
+                        "Got progress: '{}'",
+                        progress.progress
+                    );
+
                     if last_update + INTERVAL > now {
                         continue;
                     }
 
                     last_update = now;
-
-                    debug!("Got progress: {progress:?}");
 
                     self.status.set(RenderStatusInner::Rendering(progress.progress));
                     let builder = self.status.as_message();
