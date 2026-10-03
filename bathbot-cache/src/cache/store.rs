@@ -567,33 +567,22 @@ impl Cache {
             .await
             .wrap_err("Failed to move guild id")?;
 
-        let change = if is_moved {
-            conn.del::<_, ()>(RedisKey::guild(guild))
-                .await
-                .wrap_err("Failed to delete guild entry")?;
-
-            let mut change = self
-                .delete_guild_items(guild)
-                .await
-                .wrap_err("Failed to delete guild items")?;
-
-            change.guilds -= 1;
-            change.unavailable_guilds += 1;
-
-            change
+        let added: isize = if is_moved {
+            0
         } else {
-            let added: isize = conn
+            conn
                 .sadd(RedisKey::unavailable_guilds(), guild.get())
                 .await
-                .wrap_err("Failed to add guild to unavailable guilds")?;
-
-            CacheChange {
-                unavailable_guilds: added,
-                ..Default::default()
-            }
+                .wrap_err("Failed to add guild to unavailable guilds")?
         };
 
-        Ok(change)
+        // Data is intentionally kept: the GUILD_CREATE backfill refreshes it, and deleting it
+        // would leave lookups missing until the backfill catches up.
+        Ok(CacheChange {
+            guilds: if is_moved { -1 } else { 0 },
+            unavailable_guilds: if is_moved { 1 } else { added },
+            ..Default::default()
+        })
     }
 
     pub(crate) async fn cache_user(&self, user: &User) -> Result<CacheChange> {
