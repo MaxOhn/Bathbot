@@ -50,9 +50,7 @@ impl Game {
                         }
                     }
                 }
-                Err(err) => {
-                    warn!(?err, "Error while creating bg game");
-                }
+                Err(err) => warn!(?err, "Error while creating bg game"),
             }
         }
     }
@@ -173,15 +171,21 @@ pub enum LoopResult {
 
 pub async fn game_loop(
     msg_stream: &mut WaitForMessageStream,
-    game_locked: &TokioRwLock<Game>,
+    game: &TokioRwLock<Game>,
     channel: Id<ChannelMarker>,
 ) -> LoopResult {
     // Collect and evaluate messages
     while let Some(msg) = msg_stream.next().await {
-        let game = game_locked.read().await;
         let content = msg.content.cow_to_ascii_lowercase();
 
-        match game.check_msg_content(content.as_ref()) {
+        let (result, mapset_id) = {
+            let game = game.read().await;
+            let result = game.check_msg_content(content.as_ref());
+
+            (result, game.mapset.mapset_id)
+        };
+
+        match result {
             // Title correct?
             ContentResult::Title(exact) => {
                 let content = format!(
@@ -193,7 +197,6 @@ pub async fn game_loop(
                     } else {
                         format!("You were close enough {}, gratz", msg.author.name)
                     },
-                    mapset_id = game.mapset.mapset_id
                 );
 
                 // Send message
@@ -205,20 +208,23 @@ pub async fn game_loop(
             }
             // Artist correct?
             ContentResult::Artist(exact) => {
-                game.hints.write().unwrap().artist_guessed = true;
+                let content = {
+                    let game = game.read().await;
+                    game.hints.write().unwrap().artist_guessed = true;
 
-                let content = if exact {
-                    format!(
-                        "That's the correct artist `{}`, can you get the title too?",
-                        msg.author.name
-                    )
-                } else {
-                    format!(
-                        "`{}` got the artist almost correct, \
-                        it's actually `{}` but can you get the title?",
-                        msg.author.name,
-                        game.mapset.artist()
-                    )
+                    if exact {
+                        format!(
+                            "That's the correct artist `{}`, can you get the title too?",
+                            msg.author.name
+                        )
+                    } else {
+                        format!(
+                            "`{}` got the artist almost correct, \
+                            it's actually `{}` but can you get the title?",
+                            msg.author.name,
+                            game.mapset.artist()
+                        )
+                    }
                 };
 
                 // Send message

@@ -46,11 +46,11 @@ impl Hints {
                 word{plural} and the starting letter is `{first}`",
                 amount = word_count,
                 plural = if word_count != 1 { "s" } else { "" },
-                first = title.chars().next().unwrap(),
+                first = title.chars().next().unwrap_or('?'),
             )
         } else if self.hint_level == 2 && !self.artist_guessed {
             let mut artist_hint = "Here's my second hint: The artist looks like `".to_owned();
-            artist_hint.reserve(3 * artist.len() - 1);
+            artist_hint.reserve((3 * artist.len()).saturating_sub(1));
 
             let mut artist_iter = artist.chars();
 

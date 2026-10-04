@@ -375,6 +375,11 @@ async fn slash_bg(mut command: InteractionCommand) -> Result<()> {
             let params = DbMapTagsParams::new(GameMode::Mania);
 
             let entries = match Context::games().bggame_tags(params).await {
+                Ok(entries) if entries.tags.is_empty() => {
+                    command.error("No mania backgrounds available").await?;
+
+                    return Ok(());
+                }
                 Ok(entries) => entries,
                 Err(err) => {
                     let _ = command.error(GENERAL_ISSUE).await;

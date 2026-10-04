@@ -26,9 +26,12 @@ impl GameMapset {
         let title_adjusted = if let (Some(open), Some(close)) = (title.find('('), title.rfind(')'))
         {
             let mut title_ = title.clone();
-            title_.replace_range(open..=close, "");
 
-            if let Some(idx) = title_.find("feat.").or_else(|| title_.find("ft.")) {
+            if open < close {
+                title_.replace_range(open..=close, "");
+            }
+
+            if let Some(idx) = title_.find(" feat.").or_else(|| title_.find(" ft.")) {
                 title_.truncate(idx);
             }
 
