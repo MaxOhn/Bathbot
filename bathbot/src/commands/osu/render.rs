@@ -12,7 +12,7 @@ use bathbot_util::{
 use eyre::{Report, Result, WrapErr};
 use rosu_render::{
     client::error::{ApiError as OrdrApiError, ClientError as OrdrError},
-    model::{RenderDone, RenderFailed},
+    model::{RenderDone, RenderFailed, RenderProgress},
 };
 use rosu_v2::error::OsuError;
 use twilight_interactions::command::{CommandModel, CreateCommand};
@@ -645,7 +645,7 @@ impl OngoingRender {
         loop {
             tokio::select! {
                 progress = self.receivers.progress.recv() => {
-                    let Some(progress) = progress else {
+                    let Some(RenderProgress { render_id, progress, .. }) = progress else {
                         self.handle_channels_closed().await;
 
                         return;
@@ -653,30 +653,31 @@ impl OngoingRender {
 
                     let now = Instant::now();
 
-                    debug!(
-                        render_id = progress.render_id,
-                        "Got progress: '{}'",
-                        progress.progress
-                    );
+                    let progress_msg = format!("Got progress: '{progress}'");
 
                     if last_update + INTERVAL > now {
+                        debug!(render_id, "{progress_msg}");
+
                         continue;
                     }
 
                     last_update = now;
 
-                    self.status.set(RenderStatusInner::Rendering(progress.progress));
+                    self.status.set(RenderStatusInner::Rendering(progress));
                     let builder = self.status.as_message();
 
                     if let Some(ref response) = self.response {
-
-                        if let Some(update_fut) = response.get().update(builder, ) {
+                        if let Some(update_fut) = response.get().update(builder) {
                             if let Err(err) = update_fut.await {
-                                warn!(?err, "Failed to update message");
+                                warn!(render_id, ?err, "Failed to update message");
+                            } else {
+                                debug!(render_id, "{progress_msg} [UPDATED]");
                             }
                         } else {
-                            warn!("Lacking permissions to update message");
+                            warn!(render_id, "Lacking permissions to update message");
                         }
+                    } else {
+                        debug!(render_id, "No progress response");
                     }
                 },
                 done = self.receivers.done.recv() => {
