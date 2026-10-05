@@ -15,13 +15,13 @@ use rosu_render::{
     model::{RenderDone, RenderFailed, RenderProgress},
 };
 use rosu_v2::error::OsuError;
+use twilight_http::response::ResponseFuture;
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     channel::{Attachment, Message},
-    guild::Permissions,
     id::{
         Id,
-        marker::{ChannelMarker, MessageMarker, UserMarker},
+        marker::{ChannelMarker, GuildMarker, MessageMarker, UserMarker},
     },
 };
 
@@ -154,19 +154,6 @@ pub async fn slash_render(mut command: InteractionCommand) -> Result<()> {
 async fn render_replay(command: InteractionCommand, replay: RenderReplay) -> Result<()> {
     let owner = command.user_id()?;
 
-    if command
-        .permissions
-        .is_some_and(|perms| !perms.contains(Permissions::SEND_MESSAGES))
-    {
-        command.defer(false).await?;
-
-        let _ = command
-            .error("Cannot render, I cannot send messages in this channel")
-            .await;
-
-        return Ok(());
-    }
-
     if let Some(cooldown) = Context::check_ratelimit(owner, BucketName::Render) {
         trace!("Ratelimiting user {owner} on bucket `Render` for {cooldown} seconds");
 
@@ -256,10 +243,12 @@ async fn render_replay(command: InteractionCommand, replay: RenderReplay) -> Res
     let ongoing = OngoingRender::new(
         render.render_id,
         &command,
+        command.guild_id,
         ProgressResponse::new(response, false),
         status,
         None,
         owner,
+        false,
     )
     .await;
 
@@ -270,17 +259,6 @@ async fn render_replay(command: InteractionCommand, replay: RenderReplay) -> Res
 
 async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Result<()> {
     command.defer(false).await?;
-
-    if command
-        .permissions
-        .is_some_and(|perms| !perms.contains(Permissions::SEND_MESSAGES))
-    {
-        let _ = command
-            .error("Cannot render, I cannot send messages in this channel")
-            .await;
-
-        return Ok(());
-    }
 
     let owner = command.user_id()?;
     let RenderScore { score_id } = score;
@@ -435,10 +413,12 @@ async fn render_score(mut command: InteractionCommand, score: RenderScore) -> Re
     let ongoing_fut = OngoingRender::new(
         render.render_id,
         &command,
+        command.guild_id,
         ProgressResponse::new(response, false),
         status,
         Some(score_id),
         owner,
+        false,
     );
 
     tokio::spawn(ongoing_fut.await.await_render_url());
@@ -587,12 +567,23 @@ pub struct OngoingRender {
     render_id: u32,
     // The original message that will be replied to
     orig: OwnedCommandOrigin,
+    // Present when the render was commissioned in a guild channel.
+    // Guilds get the URL as a separate message; DMs / group DMs put it in place.
+    guild_id: Option<Id<GuildMarker>>,
     // The message that will be updated and deleted
     response: Option<ProgressResponse>,
     status: RenderStatus,
     receivers: OrdrReceivers,
     score_id: Option<u64>,
     msg_owner: Id<UserMarker>,
+    /// Whether the tracked progress message is a followup that must be edited
+    /// by ID (`update_followup`), rather than the interaction's `@original`.
+    ///
+    /// Set for component origins (e.g. the cached-render "Render anyways"
+    /// button): their `@original` is a pre-existing message whose webhook edit
+    /// 403s in group / stranger DMs, so the progress rides a fresh followup
+    /// instead.
+    followup: bool,
 }
 
 pub struct ProgressResponse {
@@ -617,22 +608,53 @@ impl ProgressResponse {
 }
 
 impl OngoingRender {
+    #[expect(clippy::too_many_arguments, reason = "struct has 8 fields")]
     pub async fn new(
         render_id: u32,
         orig: impl Into<OwnedCommandOrigin>,
+        guild_id: Option<Id<GuildMarker>>,
         response: Option<ProgressResponse>,
         status: RenderStatus,
         score_id: Option<u64>,
         msg_owner: Id<UserMarker>,
+        followup: bool,
     ) -> Self {
         Self {
             orig: orig.into(),
+            guild_id,
             response,
             render_id,
             receivers: Context::ordr().subscribe_render_id(render_id).await,
             status,
             score_id,
             msg_owner,
+            followup,
+        }
+    }
+
+    /// Update the tracked render message (the progress message) in place.
+    ///
+    /// For a `followup` interaction (the component path) this edits the tracked
+    /// followup by ID - its `@original` is a pre-existing message whose webhook
+    /// edit 403s in group / stranger DMs. For a non-followup interaction (the
+    /// slash path) this is a webhook `@original` edit, which works in every
+    /// channel context. For messages it is a direct channel edit of the
+    /// tracked response.
+    fn update_in_place(&self, builder: MessageBuilder<'_>) -> Option<ResponseFuture<Message>> {
+        match &self.orig {
+            OwnedCommandOrigin::Interaction { token, permissions } => {
+                if self.followup {
+                    self.response
+                        .as_ref()
+                        .map(|response| token.update_followup(response.msg, builder, *permissions))
+                } else {
+                    Some(token.update(builder, *permissions))
+                }
+            }
+            OwnedCommandOrigin::Message { .. } => self
+                .response
+                .as_ref()
+                .and_then(|response| response.get().update(builder)),
         }
     }
 
@@ -653,10 +675,10 @@ impl OngoingRender {
 
                     let now = Instant::now();
 
-                    let progress_msg = format!("Got progress: '{progress}'");
+                    let progress_msg = format!("Got progress: '{progress}' ({render_id})");
 
                     if last_update + INTERVAL > now {
-                        debug!(render_id, "{progress_msg}");
+                        debug!("{progress_msg}");
 
                         continue;
                     }
@@ -666,18 +688,14 @@ impl OngoingRender {
                     self.status.set(RenderStatusInner::Rendering(progress));
                     let builder = self.status.as_message();
 
-                    if let Some(ref response) = self.response {
-                        if let Some(update_fut) = response.get().update(builder) {
-                            if let Err(err) = update_fut.await {
-                                warn!(render_id, ?err, "Failed to update message");
-                            } else {
-                                debug!(render_id, "{progress_msg} [UPDATED]");
-                            }
+                    if let Some(update_fut) = self.update_in_place(builder) {
+                        if let Err(err) = update_fut.await {
+                            warn!(render_id, ?err, "Failed to update message");
                         } else {
-                            warn!(render_id, "Lacking permissions to update message");
+                            debug!("{progress_msg} [UPDATED]");
                         }
                     } else {
-                        debug!(render_id, "No progress response");
+                        warn!(render_id, "Lacking permissions to update message");
                     }
                 },
                 done = self.receivers.done.recv() => {
@@ -703,28 +721,25 @@ impl OngoingRender {
                     return;
                 },
                 _ = tokio::time::sleep(TIMEOUT_DURATION) => {
-                    let content = "Timeout while waiting for o!rdr updates, \
-                        there was probably a network issue.";
-
-                    if let Err(err) = self.orig.reply_error(content).await {
-                        warn!(?err, "Failed to update message");
-                    } else if let Some(ref response) = self.response {
-                        if !response.delete {
+                    if let Some(ref response) = self.response {
+                        if response.delete {
+                            if let Err(err) = response.get().delete().await {
+                                warn!(?err, "Failed to delete response");
+                            }
+                        } else {
                             let embed = EmbedBuilder::new()
                                 .color_red()
                                 .description("Render failed");
 
                             let builder = MessageBuilder::new().embed(embed);
 
-                            if let Some(update_fut) = response.get().update(builder, ) {
+                            if let Some(update_fut) = self.update_in_place(builder) {
                                 if let Err(err) = update_fut.await {
                                     warn!(?err, "Failed to update message");
                                 }
                             } else {
                                 warn!("Lacking permissions to update message");
                             }
-                        } else if let Err(err) = response.get().delete().await {
-                            warn!(?err, "Failed to delete response");
                         }
                     }
 
@@ -775,28 +790,35 @@ impl OngoingRender {
         }
 
         let video_url_with_user = format!("{video_url} <@{}>", self.msg_owner);
-        let builder = MessageBuilder::new()
+        let url_builder = MessageBuilder::new()
             .content(video_url_with_user)
             .embed(None);
 
-        if let Err(err) = self.orig.reply(builder).await {
-            warn!(?err, "Failed to reply message");
-        } else if let Some(ref response) = self.response {
-            if response.delete {
-                if let Err(err) = response.get().delete().await {
-                    warn!(?err, "Failed to delete response");
-                }
-            } else {
-                self.status.set(RenderStatusInner::Done);
-                let builder = self.status.as_message();
-
-                if let Some(update_fut) = response.get().update(builder) {
-                    if let Err(err) = update_fut.await {
-                        warn!(?err, "Failed to update message");
+        if self.guild_id.is_some() {
+            // Guild channel: send the URL as its own message and mark the
+            // progress message done.
+            if let Err(err) = self.orig.reply(url_builder).await {
+                warn!(?err, "Failed to reply message");
+            } else if let Some(ref response) = self.response {
+                if response.delete {
+                    if let Err(err) = response.get().delete().await {
+                        warn!(?err, "Failed to delete response");
                     }
                 } else {
-                    warn!("Lacking permissions to update message");
+                    self.status.set(RenderStatusInner::Done);
+                    let builder = self.status.as_message();
+
+                    if let Some(update_fut) = self.update_in_place(builder)
+                        && let Err(err) = update_fut.await
+                    {
+                        warn!(?err, "Failed to update message");
+                    }
                 }
+            }
+        } else if let Some(update_fut) = self.update_in_place(url_builder) {
+            // DM / group DM: put the URL in place, no second message.
+            if let Err(err) = update_fut.await {
+                warn!(?err, "Failed to update message");
             }
         }
 
@@ -806,9 +828,7 @@ impl OngoingRender {
     async fn handle_failed(self, failed: RenderFailed) {
         warn!(?failed, "Received error from o!rdr");
 
-        if let Err(err) = self.orig.reply_error(failed.error_message).await {
-            warn!(?err, "Failed to update message");
-        } else if let Some(ref response) = self.response {
+        if let Some(ref response) = self.response {
             if response.delete {
                 if let Err(err) = response.get().delete().await {
                     warn!(?err, "Failed to delete response");
@@ -817,7 +837,7 @@ impl OngoingRender {
                 let embed = EmbedBuilder::new().color_red().description("Render failed");
                 let builder = MessageBuilder::new().embed(embed);
 
-                if let Some(update_fut) = response.get().update(builder) {
+                if let Some(update_fut) = self.update_in_place(builder) {
                     if let Err(err) = update_fut.await {
                         warn!(?err, "Failed to update message");
                     }

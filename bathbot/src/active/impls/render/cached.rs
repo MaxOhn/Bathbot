@@ -20,9 +20,9 @@ use crate::{
         OngoingRender, ProgressResponse, RENDERER_NAME, RenderStatus, RenderStatusInner,
         ordr_error_content,
     },
-    core::Context,
+    core::{Context, commands::OwnedCommandOrigin},
     manager::ReplayError,
-    util::{ComponentExt, MessageExt, interaction::InteractionComponent},
+    util::{ComponentExt, InteractionToken, interaction::InteractionComponent},
 };
 
 pub struct CachedRender {
@@ -80,18 +80,23 @@ impl CachedRender {
             let embed = EmbedBuilder::new().description(content).color_red();
             let builder = MessageBuilder::new().embed(embed);
 
-            return component
-                .message
+            component.defer().await?;
+
+            return InteractionToken::from(&*component)
                 .reply(builder, component.permissions)
                 .await
                 .map(|_| ())
                 .wrap_err("Failed to reply for render cooldown error");
         }
 
-        let mut status = RenderStatus::new_preparing_replay();
-        let builder = status.as_message().components(Vec::new());
+        let builder = MessageBuilder::new()
+            .content("Rendering anyway...")
+            .components(Vec::new());
+
         component.callback(builder).await?;
         self.done = true;
+
+        let mut status = RenderStatus::new_preparing_replay();
 
         let replay_manager = Context::replay();
         let replay_fut = replay_manager.get_replay(self.score_id);
@@ -149,7 +154,15 @@ impl CachedRender {
         // Just a status update, no need to propagate an error
         status.set(RenderStatusInner::CommissioningRender);
 
-        let response = match component.update(status.as_message()).await {
+        // The button's `@original` is the pre-existing message this button lives
+        // in, whose webhook edit 403s in group / stranger DMs. Ride the
+        // progress on a fresh followup instead and edit it by ID.
+        let token = InteractionToken::from(&*component);
+
+        let response = match token
+            .reply(status.as_message(), component.permissions)
+            .await
+        {
             Ok(response) => match response.model().await {
                 Ok(msg) => Some(msg),
                 Err(err) => {
@@ -206,13 +219,20 @@ impl CachedRender {
             }
         };
 
+        let orig = OwnedCommandOrigin::Interaction {
+            token: token.into_owned(),
+            permissions: component.permissions,
+        };
+
         let ongoing_fut = OngoingRender::new(
             render.render_id,
-            &*component,
+            orig,
+            component.guild_id,
             ProgressResponse::new(response, self.delete_updates),
             status,
             Some(self.score_id),
             owner,
+            true,
         );
 
         tokio::spawn(ongoing_fut.await.await_render_url());

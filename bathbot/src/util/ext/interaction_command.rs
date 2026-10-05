@@ -11,11 +11,15 @@ use twilight_model::{
     channel::{Message, message::MessageFlags},
     guild::Permissions,
     http::interaction::{InteractionResponse, InteractionResponseData, InteractionResponseType},
+    id::{Id, marker::MessageMarker},
 };
 
 use crate::{
     core::Context,
-    util::{CheckPermissions, interaction::InteractionCommand},
+    util::{
+        CheckPermissions,
+        interaction::{InteractionCommand, InteractionComponent},
+    },
 };
 
 pub trait InteractionCommandExt {
@@ -232,6 +236,44 @@ impl InteractionToken<'_> {
 
         req.into_future()
     }
+
+    /// Update a followup message of this interaction, by its message ID.
+    ///
+    /// Unlike [`Self::update`] (which edits `@original`), this edits the given
+    /// message directly. Works in every channel context because the message
+    /// was minted by this interaction's webhook.
+    pub fn update_followup(
+        &self,
+        msg: Id<MessageMarker>,
+        builder: MessageBuilder<'_>,
+        permissions: Option<Permissions>,
+    ) -> ResponseFuture<Message> {
+        let client = Context::interaction();
+
+        let mut req = client.update_followup(self.0.as_ref(), msg);
+
+        if let Some(ref content) = builder.content {
+            req = req.content(Some(content.as_ref()));
+        }
+
+        let embed = builder.embed.build();
+
+        if let Some(embeds) = embed.as_option_slice() {
+            req = req.embeds(Some(embeds));
+        }
+
+        if let Some(ref components) = builder.components {
+            req = req.components(Some(components));
+        }
+
+        if let Some(attachment) = builder.attachment.as_ref().filter(|_| {
+            permissions.is_none_or(|permissions| permissions.contains(Permissions::ATTACH_FILES))
+        }) {
+            req = req.attachments(slice::from_ref(attachment));
+        }
+
+        req.into_future()
+    }
 }
 
 impl<'a> From<InteractionCommand> for InteractionToken<'a> {
@@ -243,5 +285,11 @@ impl<'a> From<InteractionCommand> for InteractionToken<'a> {
 impl<'a> From<&'a InteractionCommand> for InteractionToken<'a> {
     fn from(command: &'a InteractionCommand) -> Self {
         Self(Cow::Borrowed(&command.token))
+    }
+}
+
+impl<'a> From<&'a InteractionComponent> for InteractionToken<'a> {
+    fn from(component: &'a InteractionComponent) -> Self {
+        Self(Cow::Borrowed(&component.token))
     }
 }

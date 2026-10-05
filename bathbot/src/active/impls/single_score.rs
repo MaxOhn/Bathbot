@@ -450,10 +450,12 @@ impl SingleScorePagination {
                 channel: orig.1,
                 permissions,
             },
+            guild,
             ProgressResponse::new(response, true),
             status,
             Some(score_id),
             owner,
+            false,
         );
 
         ongoing_fut.await.await_render_url().await;
