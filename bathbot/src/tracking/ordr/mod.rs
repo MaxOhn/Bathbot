@@ -388,7 +388,10 @@ async fn handle_ordr_events(
                             .map(|senders| senders.progress.clone());
 
                         let Some(sender) = sender else {
-                            // trace!(render_id, "No subscribers for o!rdr render progress",);
+                            // trace!(
+                            //   render_id,
+                            //   "No subscribers for o!rdr render progress",
+                            // );
 
                             continue;
                         };

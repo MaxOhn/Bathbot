@@ -7,17 +7,22 @@ use twilight_http::{
 };
 use twilight_model::{
     channel::Message,
+    guild::Permissions,
     id::{Id, marker::ChannelMarker},
 };
 
 use crate::{
     core::commands::CommandOrigin,
-    util::{ChannelExt, interaction::InteractionCommand},
+    util::{ChannelExt, InteractionToken, interaction::InteractionCommand},
 };
 
 pub enum ActiveMessageOrigin<'d> {
     Channel(Id<ChannelMarker>),
     Command(CommandOrigin<'d>),
+    Followup {
+        token: InteractionToken<'static>,
+        permissions: Option<Permissions>,
+    },
 }
 
 impl ActiveMessageOrigin<'_> {
@@ -39,6 +44,13 @@ impl ActiveMessageOrigin<'_> {
                 .create_message(builder)
                 .await
                 .map_err(ActiveMessageOriginError::Report),
+            Self::Followup { token, permissions } => {
+                token.reply(builder, *permissions).await.map_err(|err| {
+                    ActiveMessageOriginError::Report(
+                        Report::new(err).wrap_err("Failed to create followup message"),
+                    )
+                })
+            }
         }
     }
 
@@ -60,6 +72,13 @@ impl ActiveMessageOrigin<'_> {
                 .callback_with_response(builder)
                 .await
                 .map_err(ActiveMessageOriginError::Report),
+            Self::Followup { token, permissions } => {
+                token.reply(builder, *permissions).await.map_err(|err| {
+                    ActiveMessageOriginError::Report(
+                        Report::new(err).wrap_err("Failed to create followup message"),
+                    )
+                })
+            }
         }
     }
 }

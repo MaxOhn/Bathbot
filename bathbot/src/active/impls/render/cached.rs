@@ -154,9 +154,10 @@ impl CachedRender {
         // Just a status update, no need to propagate an error
         status.set(RenderStatusInner::CommissioningRender);
 
-        // The button's `@original` is the pre-existing message this button lives
-        // in, whose webhook edit 403s in group / stranger DMs. Ride the
-        // progress on a fresh followup instead and edit it by ID.
+        // The button's `@original` is the pre-existing message this button
+        // lives in, whose webhook edit 403s in group / stranger DMs.
+        // Ride the progress on a fresh followup instead and edit it by
+        // ID.
         let token = InteractionToken::from(&*component);
 
         let response = match token

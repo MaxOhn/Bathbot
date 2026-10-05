@@ -38,6 +38,9 @@ impl ActiveResponse {
                     token: InteractionToken::from(&**command).into_owned(),
                 }
             }
+            ActiveMessageOrigin::Followup { token, .. } => ActiveResponseInner::Interaction {
+                token: token.clone(),
+            },
         };
 
         Self {

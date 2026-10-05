@@ -34,13 +34,13 @@ use twilight_model::{
     guild::Permissions,
     id::{
         Id,
-        marker::{ChannelMarker, GuildMarker, MessageMarker, UserMarker},
+        marker::{GuildMarker, UserMarker},
     },
 };
 
 use crate::{
     active::{
-        ActiveMessages, BuildPage, ComponentResult, IActiveMessage,
+        ActiveMessageOrigin, ActiveMessages, BuildPage, ComponentResult, IActiveMessage,
         impls::{CachedRender, embed_builder::ValueKind},
         pagination::{Pages, handle_pagination_component, handle_pagination_modal},
     },
@@ -55,7 +55,7 @@ use crate::{
     embeds::HitResultFormatter,
     manager::{ReplayError, redis::osu::CachedUser},
     util::{
-        CachedUserExt, Emote, MessageExt,
+        CachedUserExt, Emote, InteractionToken,
         interaction::{InteractionComponent, InteractionModal},
         osu::{GradeFormatter, ScoreFormatter},
     },
@@ -222,12 +222,8 @@ impl SingleScorePagination {
             return self.render_cooldown_response(component, cooldown).await;
         }
 
-        let (msg_id, channel_id, permissions, guild_id) = (
-            component.message.id,
-            component.message.channel_id,
-            component.permissions,
-            component.guild_id,
-        );
+        let (permissions, guild_id) = (component.permissions, component.guild_id);
+        let token = InteractionToken::from(component).into_owned();
 
         // The cached-render / commission decision involves a Postgres read and
         // a possible o!rdr call, which must not run inside Discord's
@@ -237,33 +233,25 @@ impl SingleScorePagination {
             match Context::replay().get_video_url(score_id).await {
                 Ok(Some(video_url)) => {
                     let cached = CachedRender::new(score_id, video_url, true, owner);
-                    let begin_fut = ActiveMessages::builder(cached).begin(channel_id);
+
+                    let orig = ActiveMessageOrigin::Followup {
+                        token: token.clone(),
+                        permissions,
+                    };
+
+                    let begin_fut = ActiveMessages::builder(cached).begin(orig);
 
                     if let Err(err) = begin_fut.await {
                         error!(?err, "Failed to begin cached render message");
                     }
                 }
                 Ok(None) => {
-                    Self::render_response(
-                        (msg_id, channel_id),
-                        permissions,
-                        score_id,
-                        owner,
-                        guild_id,
-                    )
-                    .await;
+                    Self::render_response(token, permissions, score_id, owner, guild_id).await;
                 }
                 Err(err) => {
                     warn!(?err);
 
-                    Self::render_response(
-                        (msg_id, channel_id),
-                        permissions,
-                        score_id,
-                        owner,
-                        guild_id,
-                    )
-                    .await;
+                    Self::render_response(token, permissions, score_id, owner, guild_id).await;
                 }
             }
         });
@@ -284,7 +272,7 @@ impl SingleScorePagination {
         let embed = EmbedBuilder::new().description(content).color_red();
         let builder = MessageBuilder::new().embed(embed);
 
-        let reply_fut = component.message.reply(builder, component.permissions);
+        let reply_fut = InteractionToken::from(component).reply(builder, component.permissions);
 
         match reply_fut.await {
             Ok(_) => ComponentResult::BuildPage,
@@ -297,7 +285,7 @@ impl SingleScorePagination {
     }
 
     async fn render_response(
-        orig: (Id<MessageMarker>, Id<ChannelMarker>),
+        token: InteractionToken<'static>,
         permissions: Option<Permissions>,
         score_id: u64,
         owner: Id<UserMarker>,
@@ -305,7 +293,7 @@ impl SingleScorePagination {
     ) {
         let mut status = RenderStatus::new_preparing_replay();
 
-        let msg = match orig.reply(status.as_message(), permissions).await {
+        let msg = match token.reply(status.as_message(), permissions).await {
             Ok(response) => match response.model().await {
                 Ok(msg) => msg,
                 Err(err) => return error!(?err, "Failed to get reply after render button click"),
@@ -315,9 +303,10 @@ impl SingleScorePagination {
 
         status.set(RenderStatusInner::PreparingReplay);
 
-        if let Some(update_fut) = msg.update(status.as_message()) {
-            let _ = update_fut.await;
-        }
+        token
+            .update_followup(msg.id, status.as_message(), permissions)
+            .await
+            .ok();
 
         let replay_manager = Context::replay();
         let replay_fut = replay_manager.get_replay(score_id);
@@ -333,13 +322,12 @@ impl SingleScorePagination {
                 let embed = EmbedBuilder::new().color_red().description(content);
                 let builder = MessageBuilder::new().embed(embed);
 
-                return match msg.update(builder) {
-                    Some(update_fut) => match update_fut.await {
-                        Ok(_) => {}
-                        Err(err) => error!(?err, "Failed to update message"),
-                    },
-                    None => warn!("Lacking permission to update message on error"),
-                };
+                token
+                    .update_followup(msg.id, builder, permissions)
+                    .await
+                    .ok();
+
+                return;
             }
             Err(err) => {
                 let content = match err {
@@ -359,9 +347,10 @@ impl SingleScorePagination {
                 let embed = EmbedBuilder::new().color_red().description(content);
                 let builder = MessageBuilder::new().embed(embed);
 
-                if let Some(update_fut) = msg.update(builder) {
-                    let _ = update_fut.await;
-                }
+                token
+                    .update_followup(msg.id, builder, permissions)
+                    .await
+                    .ok();
 
                 return;
             }
@@ -373,9 +362,10 @@ impl SingleScorePagination {
                 let embed = EmbedBuilder::new().color_red().description(GENERAL_ISSUE);
                 let builder = MessageBuilder::new().embed(embed);
 
-                if let Some(update_fut) = msg.update(builder) {
-                    let _ = update_fut.await;
-                }
+                token
+                    .update_followup(msg.id, builder, permissions)
+                    .await
+                    .ok();
 
                 return error!(?err);
             }
@@ -383,23 +373,23 @@ impl SingleScorePagination {
 
         status.set(RenderStatusInner::CommissioningRender);
 
-        let response = match msg.update(status.as_message()) {
-            Some(update_fut) => match update_fut.await {
-                Ok(response) => match response.model().await {
-                    Ok(msg) => Some(msg),
-                    Err(err) => {
-                        warn!(err = ?Report::new(err), "Failed to deserialize response");
-
-                        None
-                    }
-                },
+        let response = match token
+            .update_followup(msg.id, status.as_message(), permissions)
+            .await
+        {
+            Ok(response) => match response.model().await {
+                Ok(msg) => Some(msg),
                 Err(err) => {
-                    warn!(err = ?Report::new(err), "Failed to respond");
+                    warn!(err = ?Report::new(err), "Failed to deserialize response");
 
                     None
                 }
             },
-            None => None,
+            Err(err) => {
+                warn!(err = ?Report::new(err), "Failed to respond");
+
+                None
+            }
         };
 
         let allow_custom_skins = match guild {
@@ -435,9 +425,10 @@ impl SingleScorePagination {
                 let embed = EmbedBuilder::new().color_red().description(content);
                 let builder = MessageBuilder::new().embed(embed);
 
-                if let Some(update_fut) = msg.update(builder) {
-                    let _ = update_fut.await;
-                }
+                token
+                    .update_followup(msg.id, builder, permissions)
+                    .await
+                    .ok();
 
                 return;
             }
@@ -445,17 +436,13 @@ impl SingleScorePagination {
 
         let ongoing_fut = OngoingRender::new(
             render.render_id,
-            OwnedCommandOrigin::Message {
-                msg: orig.0,
-                channel: orig.1,
-                permissions,
-            },
+            OwnedCommandOrigin::Interaction { token, permissions },
             guild,
             ProgressResponse::new(response, true),
             status,
             Some(score_id),
             owner,
-            false,
+            true,
         );
 
         ongoing_fut.await.await_render_url().await;

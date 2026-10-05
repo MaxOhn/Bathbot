@@ -166,6 +166,7 @@ impl InteractionCommandExt for InteractionCommand {
     }
 }
 
+#[derive(Clone)]
 pub struct InteractionToken<'a>(pub Cow<'a, str>);
 
 impl InteractionToken<'_> {

@@ -13,10 +13,7 @@ use rosu_v2::{
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    guild::Permissions,
-    id::{Id, marker::UserMarker},
-};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use super::{ScoreOrder, map_strains_graph, require_link, user_not_found};
 use crate::{
@@ -34,7 +31,7 @@ use crate::{
     },
     core::commands::{CommandOrigin, prefix::Args},
     manager::redis::osu::{UserArgs, UserArgsError},
-    util::{ChannelExt, CheckPermissions, InteractionCommandExt, interaction::InteractionCommand},
+    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, HasName, SlashCommand)]
@@ -303,9 +300,7 @@ async fn mapper(orig: CommandOrigin<'_>, args: Mapper<'_>) -> Result<()> {
         (Some(false), _) => false,
     };
 
-    with_render &= settings.buttons.render
-        && mode == GameMode::Osu
-        && orig.has_permission_to(Permissions::SEND_MESSAGES);
+    with_render &= settings.buttons.render && mode == GameMode::Osu;
 
     let entries =
         match process_scores(scores, mapper_id, args.sort, with_render, legacy_scores).await {

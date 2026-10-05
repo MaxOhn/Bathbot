@@ -23,10 +23,7 @@ use rosu_v2::{
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    guild::Permissions,
-    id::{Id, marker::UserMarker},
-};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use super::{HasMods, ModsResult, ScoreOrder, map_strains_graph, require_link, user_not_found};
 use crate::{
@@ -44,7 +41,7 @@ use crate::{
     },
     core::commands::{CommandOrigin, prefix::Args},
     manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
-    util::{CheckPermissions, InteractionCommandExt, interaction::InteractionCommand},
+    util::{InteractionCommandExt, interaction::InteractionCommand},
 };
 
 #[derive(CommandModel, CreateCommand, HasMods, HasName, SlashCommand)]
@@ -335,9 +332,7 @@ async fn pinned(orig: CommandOrigin<'_>, args: Pinned<'_>) -> Result<()> {
         (Some(false), _) => false,
     };
 
-    with_render &= settings.buttons.render
-        && mode == GameMode::Osu
-        && orig.has_permission_to(Permissions::SEND_MESSAGES);
+    with_render &= settings.buttons.render && mode == GameMode::Osu;
 
     let origin = MessageOrigin::new(guild_id, orig.channel_id());
 
