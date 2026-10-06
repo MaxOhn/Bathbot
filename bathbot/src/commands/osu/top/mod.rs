@@ -21,10 +21,7 @@ use rosu_v2::{
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CommandOption, CreateCommand, CreateOption};
-use twilight_model::{
-    guild::Permissions,
-    id::{Id, marker::UserMarker},
-};
+use twilight_model::id::{Id, marker::UserMarker};
 
 pub use self::{if_::*, old::*};
 use super::{HasMods, ModsResult, ScoreOrder, map_strains_graph, require_link, user_not_found};
@@ -43,7 +40,7 @@ use crate::{
     },
     core::commands::{CommandOrigin, prefix::Args},
     manager::redis::osu::{UserArgs, UserArgsError},
-    util::{ChannelExt, CheckPermissions, InteractionCommandExt, interaction::InteractionCommand},
+    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 mod if_;
@@ -809,9 +806,7 @@ pub(super) async fn top(orig: CommandOrigin<'_>, args: TopArgs<'_>) -> Result<()
         (Some(false), _) => false,
     };
 
-    with_render &= settings.buttons.render
-        && mode == GameMode::Osu
-        && orig.has_permission_to(Permissions::SEND_MESSAGES);
+    with_render &= settings.buttons.render && mode == GameMode::Osu;
 
     let pre_len = scores.len();
 

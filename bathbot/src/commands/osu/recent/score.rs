@@ -14,10 +14,7 @@ use rosu_v2::{
     request::UserId,
 };
 use twilight_interactions::command::{CommandModel, CreateCommand};
-use twilight_model::{
-    guild::Permissions,
-    id::{Id, marker::UserMarker},
-};
+use twilight_model::id::{Id, marker::UserMarker};
 
 use super::RecentScore;
 use crate::{
@@ -33,7 +30,7 @@ use crate::{
     },
     core::commands::{CommandOrigin, interaction::InteractionCommands, prefix::Args},
     manager::redis::osu::{UserArgs, UserArgsError, UserArgsSlim},
-    util::{ChannelExt, CheckPermissions, InteractionCommandExt, interaction::InteractionCommand},
+    util::{ChannelExt, InteractionCommandExt, interaction::InteractionCommand},
 };
 
 const RECENT_USAGE: &str = "[username] [pass=true/false] [grade=grade[..grade]]";
@@ -590,9 +587,7 @@ pub(super) async fn score(orig: CommandOrigin<'_>, args: RecentScore<'_>) -> Res
     };
 
     with_miss_analyzer &= mode == GameMode::Osu;
-    with_render &= settings.buttons.render
-        && mode == GameMode::Osu
-        && orig.has_permission_to(Permissions::SEND_MESSAGES);
+    with_render &= settings.buttons.render && mode == GameMode::Osu;
 
     #[cfg(feature = "twitch")]
     let twitch_fut = async {

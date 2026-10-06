@@ -11,7 +11,7 @@ use twilight_model::{
     id::{Id, marker::MessageMarker},
 };
 
-pub use self::origin::ActiveMessageOriginError;
+pub use self::origin::{ActiveMessageOrigin, ActiveMessageOriginError};
 use self::{
     builder::ActiveMessagesBuilder,
     impls::{

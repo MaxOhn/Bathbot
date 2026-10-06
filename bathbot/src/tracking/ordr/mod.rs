@@ -388,7 +388,10 @@ async fn handle_ordr_events(
                             .map(|senders| senders.progress.clone());
 
                         let Some(sender) = sender else {
-                            trace!(render_id, "No subscribers for o!rdr render progress",);
+                            // trace!(
+                            //   render_id,
+                            //   "No subscribers for o!rdr render progress",
+                            // );
 
                             continue;
                         };
@@ -418,7 +421,7 @@ async fn handle_ordr_events(
                             .map(|senders| senders.done.clone());
 
                         let Some(sender) = sender else {
-                            trace!(render_id, "No subscribers for o!rdr render done",);
+                            trace!(render_id, "No subscribers for o!rdr render done");
 
                             continue;
                         };
@@ -444,7 +447,7 @@ async fn handle_ordr_events(
                             .map(|senders| senders.failed.clone());
 
                         let Some(sender) = sender else {
-                            trace!(render_id, "No subscribers for o!rdr render failed",);
+                            trace!(render_id, "No subscribers for o!rdr render failed");
 
                             continue;
                         };

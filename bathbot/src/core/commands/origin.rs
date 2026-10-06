@@ -1,4 +1,4 @@
-use bathbot_util::{Authored, EmbedBuilder, MessageBuilder};
+use bathbot_util::{Authored, MessageBuilder};
 use eyre::{ContextCompat, Result, WrapErr};
 use twilight_http::Response;
 use twilight_model::{
@@ -248,31 +248,6 @@ impl OwnedCommandOrigin {
                 .reply(builder, *permissions)
                 .await
                 .wrap_err("Failed to respond with error"),
-        }
-    }
-
-    /// Reply with a red embed.
-    ///
-    /// In case of an interaction, be sure you already called back beforehand.
-    pub async fn reply_error(&self, content: impl Into<String>) -> Result<()> {
-        let embed = EmbedBuilder::new().color_red().description(content);
-        let builder = MessageBuilder::new().embed(embed);
-
-        match self {
-            OwnedCommandOrigin::Message {
-                msg,
-                channel,
-                permissions,
-            } => (*msg, *channel)
-                .reply(builder, *permissions)
-                .await
-                .map(unit)
-                .wrap_err("Failed to reply with error"),
-            OwnedCommandOrigin::Interaction { token, permissions } => token
-                .update(builder, *permissions)
-                .await
-                .map(unit)
-                .wrap_err("Failed to reply with error"),
         }
     }
 }
