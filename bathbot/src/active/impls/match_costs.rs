@@ -177,24 +177,24 @@ impl MatchCostPagination {
         let _ = writeln!(
             description,
             "**{word} score**: \
-            :large_blue_diamond: {blue_bold}{blue_score}{blue_bold} \
+            :small_red_triangle: {red_bold}{red_score}{red_bold} \
             - \
-            {red_bold}{red_score}{red_bold} :small_red_triangle:\n\n\
-            :large_blue_diamond: **Blue Team**",
+            {blue_bold}{blue_score}{blue_bold} :large_blue_diamond:\n\n\
+            :small_red_triangle: **Red Team**",
             word = if self.osu_match.end_time.is_some() {
                 "Final"
             } else {
                 "Current"
             },
-            blue_score = blue.win_count,
             red_score = red.win_count,
-            blue_bold = bold(blue.win_count, red.win_count),
+            blue_score = blue.win_count,
             red_bold = bold(red.win_count, blue.win_count),
+            blue_bold = bold(blue.win_count, red.win_count),
         );
 
         let lengths = Lengths::default()
-            .update(&blue.players, &self.osu_match.users)
-            .update(&red.players, &self.osu_match.users);
+            .update(&red.players, &self.osu_match.users)
+            .update(&blue.players, &self.osu_match.users);
 
         match self.display {
             MatchCostDisplay::Compact => {
@@ -202,18 +202,18 @@ impl MatchCostPagination {
 
                 fmt_compact(
                     &mut description,
-                    &blue.players,
+                    &red.players,
                     &lengths,
                     &self.osu_match.users,
                     &medals,
                     1,
                 );
 
-                description.push_str("\n:small_red_triangle: **Red Team**\n");
+                description.push_str("\n:large_blue_diamond: **Blue Team**\n");
 
                 fmt_compact(
                     &mut description,
-                    &red.players,
+                    &blue.players,
                     &lengths,
                     &self.osu_match.users,
                     &medals,
@@ -223,17 +223,17 @@ impl MatchCostPagination {
             MatchCostDisplay::Full => {
                 fmt_full(
                     &mut description,
-                    &blue.players,
+                    &red.players,
                     &lengths,
                     &self.osu_match.users,
                     1,
                 );
 
-                description.push_str("\n:small_red_triangle: **Red Team**\n");
+                description.push_str("\n:small_red_triangle: **Blue Team**\n");
 
                 fmt_full(
                     &mut description,
-                    &red.players,
+                    &blue.players,
                     &lengths,
                     &self.osu_match.users,
                     1,
