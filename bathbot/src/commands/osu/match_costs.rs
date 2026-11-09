@@ -425,11 +425,11 @@ pub fn process_match(
 
             MatchResult::TeamVS {
                 red: TeamResult {
-                    players: red_players,
+                    players,
                     win_count: teams_win_count.get(MatchTeam::Red),
                 },
                 blue: TeamResult {
-                    players,
+                    players: blue_players,
                     win_count: teams_win_count.get(MatchTeam::Blue),
                 },
                 mvp_avatar_url,
