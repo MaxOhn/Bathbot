@@ -42,11 +42,11 @@ impl IActiveMessage for MatchCostPagination {
 
         embed = match &self.result {
             MatchResult::TeamVS {
-                blue,
                 red,
+                blue,
                 mvp_avatar_url,
             } => {
-                let mut description = self.description_team_vs(blue, red);
+                let mut description = self.description_team_vs(red, blue);
 
                 validate_description_len(&mut description);
 
@@ -167,7 +167,7 @@ impl MatchCostPagination {
         MatchCostPaginationBuilder::default()
     }
 
-    fn description_team_vs(&self, blue: &TeamResult, red: &TeamResult) -> String {
+    fn description_team_vs(&self, red: &TeamResult, blue: &TeamResult) -> String {
         let mut description = String::new();
 
         fn bold(a: u32, b: u32) -> &'static str {
@@ -198,7 +198,7 @@ impl MatchCostPagination {
 
         match self.display {
             MatchCostDisplay::Compact => {
-                let medals = MedalsUserIds::new_team_vs(&blue.players, &red.players);
+                let medals = MedalsUserIds::new_team_vs(&red.players, &blue.players);
 
                 fmt_compact(
                     &mut description,
@@ -455,7 +455,7 @@ struct MedalsUserIds {
 }
 
 impl MedalsUserIds {
-    fn new_team_vs(blue: &[UserMatchCostEntry], red: &[UserMatchCostEntry]) -> Self {
+    fn new_team_vs(red: &[UserMatchCostEntry], blue: &[UserMatchCostEntry]) -> Self {
         #[derive(Copy, Clone, Default)]
         struct Value {
             user_id: u32,
@@ -463,14 +463,14 @@ impl MedalsUserIds {
         }
         let mut values = [Value::default(); 6];
 
-        for (value, entry) in values[..3].iter_mut().zip(blue) {
+        for (value, entry) in values[..3].iter_mut().zip(red) {
             *value = Value {
                 user_id: entry.user_id,
                 match_cost: entry.match_cost,
             };
         }
 
-        for (value, entry) in values[3..].iter_mut().zip(red) {
+        for (value, entry) in values[3..].iter_mut().zip(blue) {
             *value = Value {
                 user_id: entry.user_id,
                 match_cost: entry.match_cost,
