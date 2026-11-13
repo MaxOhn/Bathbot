@@ -42,11 +42,11 @@ impl IActiveMessage for MatchCostPagination {
 
         embed = match &self.result {
             MatchResult::TeamVS {
-                blue,
                 red,
+                blue,
                 mvp_avatar_url,
             } => {
-                let mut description = self.description_team_vs(blue, red);
+                let mut description = self.description_team_vs(red, blue);
 
                 validate_description_len(&mut description);
 
@@ -167,7 +167,7 @@ impl MatchCostPagination {
         MatchCostPaginationBuilder::default()
     }
 
-    fn description_team_vs(&self, blue: &TeamResult, red: &TeamResult) -> String {
+    fn description_team_vs(&self, red: &TeamResult, blue: &TeamResult) -> String {
         let mut description = String::new();
 
         fn bold(a: u32, b: u32) -> &'static str {
@@ -177,43 +177,43 @@ impl MatchCostPagination {
         let _ = writeln!(
             description,
             "**{word} score**: \
-            :large_blue_diamond: {blue_bold}{blue_score}{blue_bold} \
+            :small_red_triangle: {red_bold}{red_score}{red_bold} \
             - \
-            {red_bold}{red_score}{red_bold} :small_red_triangle:\n\n\
-            :large_blue_diamond: **Blue Team**",
+            {blue_bold}{blue_score}{blue_bold} :large_blue_diamond:\n\n\
+            :small_red_triangle: **Red Team**",
             word = if self.osu_match.end_time.is_some() {
                 "Final"
             } else {
                 "Current"
             },
-            blue_score = blue.win_count,
             red_score = red.win_count,
-            blue_bold = bold(blue.win_count, red.win_count),
+            blue_score = blue.win_count,
             red_bold = bold(red.win_count, blue.win_count),
+            blue_bold = bold(blue.win_count, red.win_count),
         );
 
         let lengths = Lengths::default()
-            .update(&blue.players, &self.osu_match.users)
-            .update(&red.players, &self.osu_match.users);
+            .update(&red.players, &self.osu_match.users)
+            .update(&blue.players, &self.osu_match.users);
 
         match self.display {
             MatchCostDisplay::Compact => {
-                let medals = MedalsUserIds::new_team_vs(&blue.players, &red.players);
+                let medals = MedalsUserIds::new_team_vs(&red.players, &blue.players);
 
                 fmt_compact(
                     &mut description,
-                    &blue.players,
+                    &red.players,
                     &lengths,
                     &self.osu_match.users,
                     &medals,
                     1,
                 );
 
-                description.push_str("\n:small_red_triangle: **Red Team**\n");
+                description.push_str("\n:large_blue_diamond: **Blue Team**\n");
 
                 fmt_compact(
                     &mut description,
-                    &red.players,
+                    &blue.players,
                     &lengths,
                     &self.osu_match.users,
                     &medals,
@@ -223,17 +223,17 @@ impl MatchCostPagination {
             MatchCostDisplay::Full => {
                 fmt_full(
                     &mut description,
-                    &blue.players,
+                    &red.players,
                     &lengths,
                     &self.osu_match.users,
                     1,
                 );
 
-                description.push_str("\n:small_red_triangle: **Red Team**\n");
+                description.push_str("\n:small_red_triangle: **Blue Team**\n");
 
                 fmt_full(
                     &mut description,
-                    &red.players,
+                    &blue.players,
                     &lengths,
                     &self.osu_match.users,
                     1,
@@ -455,7 +455,7 @@ struct MedalsUserIds {
 }
 
 impl MedalsUserIds {
-    fn new_team_vs(blue: &[UserMatchCostEntry], red: &[UserMatchCostEntry]) -> Self {
+    fn new_team_vs(red: &[UserMatchCostEntry], blue: &[UserMatchCostEntry]) -> Self {
         #[derive(Copy, Clone, Default)]
         struct Value {
             user_id: u32,
@@ -463,14 +463,14 @@ impl MedalsUserIds {
         }
         let mut values = [Value::default(); 6];
 
-        for (value, entry) in values[..3].iter_mut().zip(blue) {
+        for (value, entry) in values[..3].iter_mut().zip(red) {
             *value = Value {
                 user_id: entry.user_id,
                 match_cost: entry.match_cost,
             };
         }
 
-        for (value, entry) in values[3..].iter_mut().zip(red) {
+        for (value, entry) in values[3..].iter_mut().zip(blue) {
             *value = Value {
                 user_id: entry.user_id,
                 match_cost: entry.match_cost,

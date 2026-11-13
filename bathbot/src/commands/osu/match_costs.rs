@@ -353,11 +353,11 @@ pub fn process_match(
         .map_or_else(Box::default, |user| Box::from(user.avatar_url.as_str()));
 
     if games[0].team_type == TeamType::TeamVS {
-        let mut blue = TeamResult::new(teams_win_count.get(MatchTeam::Blue));
         let mut red = TeamResult::new(teams_win_count.get(MatchTeam::Red));
+        let mut blue = TeamResult::new(teams_win_count.get(MatchTeam::Blue));
 
         for (&user_id, entry) in match_costs.iter() {
-            let Some(team @ (MatchTeam::Blue | MatchTeam::Red)) = users_team.get(user_id) else {
+            let Some(team @ (MatchTeam::Red | MatchTeam::Blue)) = users_team.get(user_id) else {
                 continue;
             };
 
@@ -372,18 +372,18 @@ pub fn process_match(
             };
 
             match team {
-                MatchTeam::Blue => blue.players.push(entry),
                 MatchTeam::Red => red.players.push(entry),
+                MatchTeam::Blue => blue.players.push(entry),
                 MatchTeam::None => unreachable!(),
             }
         }
 
-        UserMatchCostEntry::sort(&mut blue.players);
         UserMatchCostEntry::sort(&mut red.players);
+        UserMatchCostEntry::sort(&mut blue.players);
 
         MatchResult::TeamVS {
-            blue,
             red,
+            blue,
             mvp_avatar_url,
         }
     } else {
@@ -402,17 +402,17 @@ pub fn process_match(
 
         // If it was a two person match, artificially assign them into
         // teams
-        if let [blue_player, _] = players.as_slice() {
+        if let [red_player, _] = players.as_slice() {
             let mut teams_win_count = TeamsWinCount::default();
 
             for game in games.iter() {
                 let mut teams_score = TeamsScore::default();
 
                 for score in game.scores.iter() {
-                    let team = if score.user_id == blue_player.user_id {
-                        MatchTeam::Blue
-                    } else {
+                    let team = if score.user_id == red_player.user_id {
                         MatchTeam::Red
+                    } else {
+                        MatchTeam::Blue
                     };
 
                     teams_score.update(team, score.score);
@@ -421,16 +421,16 @@ pub fn process_match(
                 teams_win_count.add_win(teams_score.winner());
             }
 
-            let red_players = players.split_off(1);
+            let blue_players = players.split_off(1);
 
             MatchResult::TeamVS {
-                blue: TeamResult {
-                    players,
-                    win_count: teams_win_count.get(MatchTeam::Blue),
-                },
                 red: TeamResult {
-                    players: red_players,
+                    players,
                     win_count: teams_win_count.get(MatchTeam::Red),
+                },
+                blue: TeamResult {
+                    players: blue_players,
+                    win_count: teams_win_count.get(MatchTeam::Blue),
                 },
                 mvp_avatar_url,
             }
@@ -604,11 +604,11 @@ impl TeamsWinCount {
     }
 
     fn diff(&self) -> u32 {
-        if let (Some(blue), Some(red)) = (
-            self.entries.get(&MatchTeam::Blue),
+        if let (Some(red), Some(blue)) = (
             self.entries.get(&MatchTeam::Red),
+            self.entries.get(&MatchTeam::Blue),
         ) {
-            blue.abs_diff(*red)
+            red.abs_diff(*blue)
         } else {
             0
         }
@@ -666,8 +666,8 @@ impl TeamResult {
 
 pub enum MatchResult {
     TeamVS {
-        blue: TeamResult,
         red: TeamResult,
+        blue: TeamResult,
         mvp_avatar_url: Box<str>,
     },
     HeadToHead {
